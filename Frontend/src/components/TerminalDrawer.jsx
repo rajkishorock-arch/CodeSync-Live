@@ -22,12 +22,26 @@ export default function TerminalDrawer({
   yFilesMapRef,
   stdinInput,
   setStdinInput,
-  editorRef
+  editorRef,
+  terminalHeight,
+  onMouseDownResize
 }) {
   if (!showConsole) return null
 
   return (
-    <div className="h-60 sm:h-64 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
+    <div
+      style={{ height: `${terminalHeight}px` }}
+      className="bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs relative select-none"
+    >
+      {/* Top Resize Drag Handle */}
+      <div
+        onMouseDown={onMouseDownResize}
+        className="h-1.5 w-full bg-[#161b22] hover:bg-[#58a6ff] cursor-row-resize transition-colors z-20 flex items-center justify-center group"
+        title="Drag up/down to adjust terminal height"
+      >
+        <div className="w-10 h-0.5 bg-[#30363d] group-hover:bg-white rounded-full"></div>
+      </div>
+
       <div className="px-3 py-1 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e] overflow-x-auto gap-2 scrollbar-none">
         <div className="flex items-center gap-1.5">
           <button

@@ -15,6 +15,8 @@ import HeaderNavbar from "../components/HeaderNavbar"
 import TerminalDrawer from "../components/TerminalDrawer"
 import DiffViewer from "../components/DiffViewer"
 import EditorSettings from "../components/EditorSettings"
+import SidebarSettings from "../components/SidebarSettings"
+import VoiceCall from "../components/VoiceCall"
 
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
@@ -97,9 +99,55 @@ function App() {
   const [commits, setCommits] = useState([])
   const [copiedLink, setCopiedLink] = useState(false)
   
+  // Resizable Sidebar & Terminal Drawer State
+  const [sidebarWidth, setSidebarWidth] = useState(260)
+  const [terminalHeight, setTerminalHeight] = useState(240)
+
   // Mobile responsive sidebar drawer state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeSidebarTab, setActiveSidebarTab] = useState("files")
+
+  // Drag handlers for Sidebar Resizing
+  const handleSidebarMouseDown = (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = sidebarWidth
+
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX
+      const newWidth = Math.min(Math.max(startWidth + deltaX, 180), 550)
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+  }
+
+  // Drag handlers for Terminal Height Resizing
+  const handleTerminalMouseDown = (e) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startHeight = terminalHeight
+
+    const handleMouseMove = (moveEvent) => {
+      const deltaY = startY - moveEvent.clientY
+      const newHeight = Math.min(Math.max(startHeight + deltaY, 100), 600)
+      setTerminalHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+  }
 
   // Directory & Multi-file state
   const [filesList, setFilesList] = useState(["main.js", "src/index.js", "src/style.css"])
@@ -606,42 +654,26 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-full bg-[#0d1117] flex flex-col font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30 relative">
-      {/* Header Bar */}
-      <HeaderNavbar
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-        roomId={roomId}
-        handleCopyLink={handleCopyInviteLink}
-        copiedLink={copiedLink}
-        users={users}
-        username={username}
-        getUserColor={getUserColor}
-        activeFileName={activeFileName}
-        language={language}
-        handleRunCode={handleRunCode}
-        isRunning={isRunning}
-        showDiffView={showDiffView}
-        setShowDiffView={setShowDiffView}
-        setShowSettings={setShowSettings}
-      />
-
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
+    <div className="h-screen w-full bg-[#0d1117] flex font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30 relative">
+      {/* Main Workspace Layout (Full Height from Top Edge) */}
+      <div className="flex-1 flex overflow-hidden relative w-full h-full">
+        {/* Mobile Backdrop */}
         {isSidebarOpen && (
           <div onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-30" />
         )}
 
         {/* Sidebar */}
         <aside
+          style={{ width: window.innerWidth >= 768 ? `${sidebarWidth}px` : "280px" }}
           className={`${
             isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 transition-transform duration-200 ease-in-out fixed md:relative z-40 inset-y-12 left-0 w-72 md:w-64 bg-[#161b22] border-r border-[#30363d] flex shrink-0 shadow-2xl md:shadow-none`}
+          } md:translate-x-0 transition-transform duration-150 ease-in-out fixed md:relative z-40 inset-y-0 left-0 bg-[#161b22] border-r border-[#30363d] flex shrink-0 shadow-2xl md:shadow-none select-none`}
         >
-          {/* Activity Bar Icons */}
-          <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-2 gap-3 shrink-0">
+          {/* Activity Bar Column (Leftmost 48px) */}
+          <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-3 gap-3 shrink-0 h-full">
+            {/* Top Activity Icons */}
             <button
-              onClick={() => setActiveSidebarTab("files")}
+              onClick={() => setActiveSidebarTab(activeSidebarTab === "files" ? null : "files")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
                 activeSidebarTab === "files"
                   ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
@@ -651,8 +683,9 @@ function App() {
             >
               📁
             </button>
+
             <button
-              onClick={() => setActiveSidebarTab("git")}
+              onClick={() => setActiveSidebarTab(activeSidebarTab === "git" ? null : "git")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
                 activeSidebarTab === "git"
                   ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40"
@@ -662,8 +695,9 @@ function App() {
             >
               🌿
             </button>
+
             <button
-              onClick={() => setActiveSidebarTab("ai")}
+              onClick={() => setActiveSidebarTab(activeSidebarTab === "ai" ? null : "ai")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
                 activeSidebarTab === "ai"
                   ? "bg-[#bc8cff]/20 text-[#bc8cff] border border-[#bc8cff]/40"
@@ -673,8 +707,9 @@ function App() {
             >
               ✨
             </button>
+
             <button
-              onClick={() => setActiveSidebarTab("chat")}
+              onClick={() => setActiveSidebarTab(activeSidebarTab === "chat" ? null : "chat")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
                 activeSidebarTab === "chat"
                   ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40"
@@ -689,8 +724,9 @@ function App() {
                 </span>
               )}
             </button>
+
             <button
-              onClick={() => setActiveSidebarTab("users")}
+              onClick={() => setActiveSidebarTab(activeSidebarTab === "users" ? null : "users")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
                 activeSidebarTab === "users"
                   ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40"
@@ -703,76 +739,134 @@ function App() {
                 {users.length}
               </span>
             </button>
-          </div>
 
-          {/* Sidebar Tab Content */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
-            {activeSidebarTab === "files" && (
-              <FileExplorer
-                fileTree={fileTree}
-                filesList={filesList}
-                activeFileName={activeFileName}
-                fileLanguages={fileLanguages}
-                getLanguageFromFileName={getLanguageFromFileName}
-                handleSelectFile={handleSelectFile}
-                handleDeleteFile={handleDeleteFile}
-                isCreatingItem={isCreatingItem}
-                setIsCreatingItem={setIsCreatingItem}
-                newPathName={newPathName}
-                setNewPathName={setNewPathName}
-                handleCreateItem={handleCreateItem}
-                expandedFolders={expandedFolders}
-                toggleFolder={toggleFolder}
-              />
-            )}
+            {/* Bottom Anchored Activity Icons */}
+            <div className="mt-auto flex flex-col items-center gap-3">
+              {/* WebRTC Voice Channel Toggle */}
+              <VoiceCall roomId={roomId} username={username} users={users} getUserColor={getUserColor} />
 
-            {activeSidebarTab === "git" && (
-              <GitPanel
-                filesList={filesList}
-                activeFileName={activeFileName}
-                username={username}
-                docRef={docRef}
-                yFilesMapRef={yFilesMapRef}
-                setActiveFileName={setActiveFileName}
-              />
-            )}
-
-            {activeSidebarTab === "ai" && (
-              <AiAssistant
-                activeFileName={activeFileName}
-                language={language}
-                editorRef={editorRef}
-                yFilesMapRef={yFilesMapRef}
-              />
-            )}
-
-            {activeSidebarTab === "chat" && (
-              <RoomChat
-                messages={messages}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                handleSendChatMessage={handleSendChatMessage}
-                chatEndRef={chatEndRef}
-              />
-            )}
-
-            {activeSidebarTab === "users" && (
-              <ActiveUsers users={users} username={username} getUserColor={getUserColor} />
-            )}
-
-            <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[#3fb950]">
-                <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
-              </span>
-              <span>Yjs Live</span>
+              {/* Settings Toggle */}
+              <button
+                onClick={() => setActiveSidebarTab(activeSidebarTab === "settings" ? null : "settings")}
+                className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
+                  activeSidebarTab === "settings"
+                    ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
+                    : "text-[#8b949e] hover:text-[#c9d1d9]"
+                }`}
+                title="Editor Settings & Language"
+              >
+                ⚙️
+              </button>
             </div>
           </div>
+
+          {/* Sidebar Tab Content Area */}
+          {activeSidebarTab && (
+            <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
+              {activeSidebarTab === "files" && (
+                <FileExplorer
+                  fileTree={fileTree}
+                  filesList={filesList}
+                  activeFileName={activeFileName}
+                  fileLanguages={fileLanguages}
+                  getLanguageFromFileName={getLanguageFromFileName}
+                  handleSelectFile={handleSelectFile}
+                  handleDeleteFile={handleDeleteFile}
+                  isCreatingItem={isCreatingItem}
+                  setIsCreatingItem={setIsCreatingItem}
+                  newPathName={newPathName}
+                  setNewPathName={setNewPathName}
+                  handleCreateItem={handleCreateItem}
+                  expandedFolders={expandedFolders}
+                  toggleFolder={toggleFolder}
+                />
+              )}
+
+              {activeSidebarTab === "git" && (
+                <GitPanel
+                  filesList={filesList}
+                  activeFileName={activeFileName}
+                  username={username}
+                  docRef={docRef}
+                  yFilesMapRef={yFilesMapRef}
+                  setActiveFileName={setActiveFileName}
+                />
+              )}
+
+              {activeSidebarTab === "ai" && (
+                <AiAssistant
+                  activeFileName={activeFileName}
+                  language={language}
+                  editorRef={editorRef}
+                  yFilesMapRef={yFilesMapRef}
+                />
+              )}
+
+              {activeSidebarTab === "chat" && (
+                <RoomChat
+                  messages={messages}
+                  chatInput={chatInput}
+                  setChatInput={setChatInput}
+                  handleSendChatMessage={handleSendChatMessage}
+                  chatEndRef={chatEndRef}
+                />
+              )}
+
+              {activeSidebarTab === "users" && (
+                <ActiveUsers users={users} username={username} getUserColor={getUserColor} />
+              )}
+
+              {activeSidebarTab === "settings" && (
+                <SidebarSettings
+                  language={language}
+                  handleManualLanguageChange={handleManualLanguageChange}
+                  LANGUAGE_CONFIG={LANGUAGE_CONFIG}
+                  theme={theme}
+                  setTheme={setTheme}
+                  fontSize={fontSize}
+                  setFontSize={setFontSize}
+                  tabSize={tabSize}
+                  setTabSize={setTabSize}
+                  wordWrap={wordWrap}
+                  setWordWrap={setWordWrap}
+                  minimap={minimap}
+                  setMinimap={setMinimap}
+                  roomId={roomId}
+                  handleCopyLink={handleCopyInviteLink}
+                  copiedLink={copiedLink}
+                  activeFileName={activeFileName}
+                />
+              )}
+
+              <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[#3fb950]">
+                  <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
+                </span>
+                <span>Yjs Live</span>
+              </div>
+            </div>
+          )}
+
+          {/* Draggable Sidebar Resizer Handle (Right Edge) */}
+          <div
+            onMouseDown={handleSidebarMouseDown}
+            className="w-1.5 h-full hover:bg-[#58a6ff] cursor-col-resize transition-colors z-30 shrink-0 opacity-40 hover:opacity-100"
+            title="Drag left/right to resize sidebar width"
+          />
         </aside>
 
         {/* Main Editor Section */}
         <section className="flex-1 h-full flex flex-col bg-[#0d1117] overflow-hidden w-full min-w-0">
           {/* File Tabs Bar */}
           <div className="flex items-center bg-[#161b22] border-b border-[#30363d] overflow-x-auto px-1 pt-1 gap-1 scrollbar-none">
+            {/* Mobile Sidebar Toggle Button */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden px-2 py-1 bg-[#21262d] border border-[#30363d] rounded text-xs text-[#c9d1d9] cursor-pointer mr-1"
+            >
+              ☰
+            </button>
+
             {filesList.map((fileName) => {
               const isActive = fileName === activeFileName
               const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
@@ -810,41 +904,53 @@ function App() {
           {/* Sub-Header Toolbar */}
           <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Language:</span>
-                <select
-                  value={language}
-                  onChange={(e) => handleManualLanguageChange(e.target.value)}
-                  className="bg-[#161b22] border border-[#30363d] text-[#58a6ff] font-bold rounded px-2.5 py-1 focus:outline-none cursor-pointer text-xs"
-                >
-                  {LANGUAGE_CONFIG.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5 text-xs">
+                <span>⚡ CodeSync</span>
+                <span className="text-[#8b949e] text-[11px] font-normal">({activeFileName})</span>
+              </span>
 
-              <div className="hidden sm:flex items-center gap-1.5">
-                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Theme:</span>
-                <select
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-2 py-0.5 focus:outline-none cursor-pointer"
-                >
-                  <option value="vs-dark">VS Dark</option>
-                  <option value="light">VS Light</option>
-                  <option value="hc-black">High Contrast</option>
-                </select>
-              </div>
+              {/* Version Diff View Button */}
+              <button
+                onClick={() => setShowDiffView(!showDiffView)}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
+                  showDiffView
+                    ? "bg-[#1f6feb]/20 text-[#58a6ff] border-[#1f6feb]/40"
+                    : "bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border-[#30363d]"
+                }`}
+                title="Toggle Code Version Diff View"
+              >
+                <span>⇄</span>
+                <span>{showDiffView ? "Close Diff" : "Diff View"}</span>
+              </button>
             </div>
 
-            <button
-              onClick={() => setShowConsole(!showConsole)}
-              className="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded transition-colors cursor-pointer text-xs font-semibold"
-            >
-              {showConsole ? "Hide Terminal 🔽" : "Show Terminal 🔼"}
-            </button>
+            {/* Run Code Button & Terminal Toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRunCode}
+                disabled={isRunning}
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#238636] hover:bg-[#2ea043] disabled:opacity-50 text-white text-xs font-bold rounded shadow-sm transition-all cursor-pointer"
+              >
+                {isRunning ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Running...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>▶</span>
+                    <span>Run Code</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowConsole(!showConsole)}
+                className="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded transition-colors cursor-pointer text-xs font-semibold"
+              >
+                {showConsole ? "Hide Terminal 🔽" : "Show Terminal 🔼"}
+              </button>
+            </div>
           </div>
 
           {/* Main Monaco Editor Container or Diff Viewer */}
@@ -899,24 +1005,11 @@ function App() {
             stdinInput={stdinInput}
             setStdinInput={setStdinInput}
             editorRef={editorRef}
+            terminalHeight={terminalHeight}
+            onMouseDownResize={handleTerminalMouseDown}
           />
         </section>
       </div>
-
-      {/* Editor Settings Modal */}
-      {showSettings && (
-        <EditorSettings
-          fontSize={fontSize}
-          setFontSize={setFontSize}
-          tabSize={tabSize}
-          setTabSize={setTabSize}
-          wordWrap={wordWrap}
-          setWordWrap={setWordWrap}
-          minimap={minimap}
-          setMinimap={setMinimap}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
     </div>
   )
 }
