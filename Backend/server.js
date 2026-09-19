@@ -1,10 +1,10 @@
 import fs from "fs"
 import path from "path"
-import * as Y from "./node_modules/@y/websocket-server/node_modules/yjs/src/index.js"
-import { setPersistence } from "@y/websocket-server/utils"
+import * as Y from "yjs"
+import { setPersistence } from "y-websocket/bin/utils"
 
-process.env.HOST ??= "localhost"
-process.env.PORT ??= "1234"
+process.env.HOST ??= "0.0.0.0"
+process.env.PORT ??= process.env.PORT || "1234"
 
 const persistenceDir = path.resolve("storage")
 const saveTimers = new Map()
@@ -43,4 +43,4 @@ setPersistence({
   },
 })
 
-await import("@y/websocket-server/server")
+await import("y-websocket/bin/server")
