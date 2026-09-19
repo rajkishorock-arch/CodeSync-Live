@@ -41,10 +41,10 @@ function getLanguageFromFileName(filename) {
   if (!filename) return "javascript"
   const lower = filename.toLowerCase()
   if (lower.endsWith(".py")) return "python"
-  if (lower.endsWith(".cpp") || lower.endsWith(".cc")) return "cpp"
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".jsx")) return "cpp"
   if (lower.endsWith(".c")) return "c"
   if (lower.endsWith(".java")) return "java"
-  if (lower.endsWith(".ts")) return "typescript"
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript"
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html"
   if (lower.endsWith(".css")) return "css"
   if (lower.endsWith(".go")) return "go"
@@ -80,11 +80,12 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeSidebarTab, setActiveSidebarTab] = useState("files")
 
-  // Multi-file state
-  const [filesList, setFilesList] = useState(["main.js"])
+  // Directory & Multi-file state
+  const [filesList, setFilesList] = useState(["main.js", "src/index.js", "src/style.css"])
   const [activeFileName, setActiveFileName] = useState("main.js")
-  const [newFileName, setNewFileName] = useState("")
-  const [isCreatingFile, setIsCreatingFile] = useState(false)
+  const [newPathName, setNewPathName] = useState("")
+  const [isCreatingItem, setIsCreatingItem] = useState(false)
+  const [expandedFolders, setExpandedFolders] = useState({ src: true })
 
   // Manual language override state per file
   const [fileLanguages, setFileLanguages] = useState({})
@@ -112,7 +113,35 @@ function App() {
     return getLanguageFromFileName(activeFileName)
   }, [activeFileName, fileLanguages])
 
-  // Bind Editor to Active File with Remote Cursor Awareness
+  // Build Folder Tree Hierarchy from flat file paths
+  const fileTree = useMemo(() => {
+    const tree = { folders: {}, files: [] }
+
+    filesList.forEach((filePath) => {
+      const parts = filePath.split("/")
+      if (parts.length === 1) {
+        tree.files.push(filePath)
+      } else {
+        let current = tree
+        for (let i = 0; i < parts.length - 1; i++) {
+          const folderName = parts[i]
+          if (!current.folders[folderName]) {
+            current.folders[folderName] = { folders: {}, files: [], path: parts.slice(0, i + 1).join("/") }
+          }
+          current = current.folders[folderName]
+        }
+        current.files.push(filePath)
+      }
+    })
+
+    return tree
+  }, [filesList])
+
+  const toggleFolder = (folderPath) => {
+    setExpandedFolders((prev) => ({ ...prev, [folderPath]: !prev[folderPath] }))
+  }
+
+  // Bind Editor to Active File
   const bindEditorToFile = (fileName, editor = editorRef.current, provider = providerRef.current) => {
     if (!editor) return
 
@@ -128,7 +157,6 @@ function App() {
       fileYText.insert(0, STARTER_SNIPPETS[fileLang] || `// ${fileName}\n`)
     }
 
-    // Initialize MonacoBinding with Provider Awareness for live colored remote cursors
     bindingRef.current = new MonacoBinding(
       fileYText,
       editor.getModel(),
@@ -151,15 +179,16 @@ function App() {
   }
 
   const handleManualLanguageChange = (newLang) => {
-    setFileLanguages(prev => ({ ...prev, [activeFileName]: newLang }))
+    setFileLanguages((prev) => ({ ...prev, [activeFileName]: newLang }))
   }
 
-  const handleCreateFile = (e) => {
+  const handleCreateItem = (e) => {
     e.preventDefault()
-    let name = newFileName.trim()
+    let name = newPathName.trim()
     if (!name) return
 
-    if (!name.includes(".")) {
+    // If file with extension
+    if (!name.includes("/") && !name.includes(".")) {
       name += ".js"
     }
 
@@ -168,8 +197,8 @@ function App() {
       handleSelectFile(name)
     }
 
-    setNewFileName("")
-    setIsCreatingFile(false)
+    setNewPathName("")
+    setIsCreatingItem(false)
   }
 
   const handleDeleteFile = (fileName, e) => {
@@ -181,7 +210,7 @@ function App() {
 
     if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
       yFilesMap.delete(fileName)
-      const remainingFiles = filesList.filter(f => f !== fileName)
+      const remainingFiles = filesList.filter((f) => f !== fileName)
       if (activeFileName === fileName) {
         handleSelectFile(remainingFiles[0])
       }
@@ -206,7 +235,7 @@ function App() {
       id: Date.now(),
       sender: username,
       text: text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     }
 
     yChatArray.push([msgObj])
@@ -224,9 +253,9 @@ function App() {
       const currentKeys = Array.from(yFilesMap.keys())
       if (currentKeys.length === 0) {
         yFilesMap.set("main.js", { createdBy: "System" })
-        yFilesMap.set("index.html", { createdBy: "System" })
-        yFilesMap.set("style.css", { createdBy: "System" })
-        setFilesList(["main.js", "index.html", "style.css"])
+        yFilesMap.set("src/index.js", { createdBy: "System" })
+        yFilesMap.set("src/style.css", { createdBy: "System" })
+        setFilesList(["main.js", "src/index.js", "src/style.css"])
       } else {
         setFilesList(currentKeys)
       }
@@ -255,29 +284,28 @@ function App() {
     }
   }, [messages, activeSidebarTab])
 
-  // WebSocket Connection & User Awareness for Remote Cursors
   useEffect(() => {
     if (username) {
-      const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL || `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
+      const websocketUrl =
+        import.meta.env.VITE_WEBSOCKET_URL ||
+        `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
       const provider = new WebsocketProvider(websocketUrl, "monaco", ydoc)
       providerRef.current = provider
 
       const userColor = getUserColor(username)
 
-      // Pass User Name & Unique Color to Yjs Awareness for Remote Cursors
       provider.awareness.setLocalStateField("user", {
         username,
         color: userColor
       })
 
-      // Re-bind Monaco editor with active provider awareness
       if (editorRef.current) {
         bindEditorToFile(activeFileName, editorRef.current, provider)
       }
 
       const handleAwarenessChange = () => {
         const states = Array.from(provider.awareness.getStates().values())
-        setUsers(states.filter(state => state.user && state.user.username).map(state => state.user))
+        setUsers(states.filter((state) => state.user && state.user.username).map((state) => state.user))
       }
 
       provider.awareness.on("change", handleAwarenessChange)
@@ -296,7 +324,7 @@ function App() {
     }
   }, [username, ydoc])
 
-  // Multi-Engine Execution with Stdin Support
+  // Multi-Engine Execution
   const handleRunCode = async () => {
     const activeFileYText = ydoc.getText(`file_${activeFileName}`)
     const codeToRun = activeFileYText.toString()
@@ -313,7 +341,7 @@ function App() {
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
-        const htmlCode = ydoc.getText("file_index.html").toString() || "<h1>Live Preview</h1>"
+        const htmlCode = ydoc.getText("file_src/index.js").toString() || "<h1>Live Preview</h1>"
         combinedHTML = `<style>${codeToRun}</style>${htmlCode}`
       }
 
@@ -332,9 +360,12 @@ function App() {
     if (language === "javascript" || language === "typescript") {
       const logs = []
       const customConsole = {
-        log: (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
-        error: (...args) => logs.push("[Error] " + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
-        warn: (...args) => logs.push("[Warn] " + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" "))
+        log: (...args) =>
+          logs.push(args.map((a) => (typeof a === "object" ? JSON.stringify(a, null, 2) : String(a))).join(" ")),
+        error: (...args) =>
+          logs.push("[Error] " + args.map((a) => (typeof a === "object" ? JSON.stringify(a, null, 2) : String(a))).join(" ")),
+        warn: (...args) =>
+          logs.push("[Warn] " + args.map((a) => (typeof a === "object" ? JSON.stringify(a, null, 2) : String(a))).join(" "))
       }
 
       const startTime = performance.now()
@@ -344,7 +375,7 @@ function App() {
           executableCode = codeToRun.replace(/:\s*\w+/g, "")
         }
 
-        const runFn = new Function('console', executableCode)
+        const runFn = new Function("console", executableCode)
         runFn(customConsole)
         const duration = ((performance.now() - startTime) / 1000).toFixed(3)
 
@@ -369,7 +400,7 @@ function App() {
       return
     }
 
-    const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
+    const langObj = LANGUAGE_CONFIG.find((l) => l.id === language)
     try {
       const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
         method: "POST",
@@ -394,7 +425,9 @@ function App() {
 
       if (isErr && data.status && data.status.id !== 3) {
         if (!stdinInput.trim() && (codeToRun.includes("scanf") || codeToRun.includes("cin") || codeToRun.includes("input("))) {
-          outputMessage = stdout + "\n\n💡 TIP: Your program requires user input (scanf / cin / input).\nPlease enter your input values in the 'Program Input (stdin)' box below and click 'Run Code' again!"
+          outputMessage =
+            stdout +
+            "\n\n💡 TIP: Your program requires user input (scanf / cin / input).\nPlease enter your input values in the 'Program Input (stdin)' box below and click 'Run Code' again!"
         }
       }
 
@@ -416,6 +449,76 @@ function App() {
     } finally {
       setIsRunning(false)
     }
+  }
+
+  // Helper Component to Render Recursive Folder Tree
+  const renderFolderNode = (folderName, folderData, depth = 0) => {
+    const isExpanded = expandedFolders[folderData.path]
+    return (
+      <div key={folderData.path} className="select-none">
+        <div
+          onClick={() => toggleFolder(folderData.path)}
+          className="flex items-center gap-1.5 py-1 px-2 hover:bg-[#21262d] text-xs font-semibold text-[#8b949e] cursor-pointer rounded"
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        >
+          <span className="text-[10px]">{isExpanded ? "▼" : "▶"}</span>
+          <span>📁 {folderName}</span>
+        </div>
+
+        {isExpanded && (
+          <div>
+            {Object.keys(folderData.folders).map((subFolderName) =>
+              renderFolderNode(subFolderName, folderData.folders[subFolderName], depth + 1)
+            )}
+
+            {folderData.files.map((filePath) => {
+              const isSelected = filePath === activeFileName
+              const fileNameOnly = filePath.split("/").pop()
+              const fileLang = fileLanguages[filePath] || getLanguageFromFileName(filePath)
+              return (
+                <div
+                  key={filePath}
+                  onClick={() => handleSelectFile(filePath)}
+                  className={`group flex items-center justify-between py-1 px-2 text-xs cursor-pointer rounded transition-colors border ${
+                    isSelected
+                      ? "bg-[#1f6feb]/15 border-[#1f6feb]/40 text-[#58a6ff] font-semibold"
+                      : "bg-transparent border-transparent text-[#c9d1d9] hover:bg-[#21262d]"
+                  }`}
+                  style={{ paddingLeft: `${(depth + 1) * 12 + 12}px` }}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-xs">
+                      {fileLang === "javascript" && "📜"}
+                      {fileLang === "python" && "🐍"}
+                      {fileLang === "cpp" && "⚙️"}
+                      {fileLang === "c" && "⚙️"}
+                      {fileLang === "java" && "☕"}
+                      {fileLang === "typescript" && "📘"}
+                      {fileLang === "html" && "🌐"}
+                      {fileLang === "css" && "🎨"}
+                      {fileLang === "go" && "🐹"}
+                      {fileLang === "rust" && "🦀"}
+                      {fileLang === "php" && "🐘"}
+                      {fileLang === "sql" && "🗄️"}
+                      {fileLang === "json" && "📋"}
+                    </span>
+                    <span className="truncate">{fileNameOnly}</span>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleDeleteFile(filePath, e)}
+                    className="opacity-0 group-hover:opacity-100 hover:text-[#f85149] text-[#8b949e] text-xs px-1 cursor-pointer"
+                    title="Delete file"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Welcome Screen
@@ -522,10 +625,7 @@ function App() {
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden relative">
         {isSidebarOpen && (
-          <div
-            onClick={() => setIsSidebarOpen(false)}
-            className="md:hidden fixed inset-0 bg-black/60 z-30"
-          />
+          <div onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-30" />
         )}
 
         {/* Sidebar */}
@@ -539,7 +639,9 @@ function App() {
             <button
               onClick={() => setActiveSidebarTab("files")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-                activeSidebarTab === "files" ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+                activeSidebarTab === "files"
+                  ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
+                  : "text-[#8b949e] hover:text-[#c9d1d9]"
               }`}
               title="Files Explorer"
             >
@@ -548,7 +650,9 @@ function App() {
             <button
               onClick={() => setActiveSidebarTab("chat")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-                activeSidebarTab === "chat" ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+                activeSidebarTab === "chat"
+                  ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40"
+                  : "text-[#8b949e] hover:text-[#c9d1d9]"
               }`}
               title="Room Chat"
             >
@@ -562,7 +666,9 @@ function App() {
             <button
               onClick={() => setActiveSidebarTab("users")}
               className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-                activeSidebarTab === "users" ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+                activeSidebarTab === "users"
+                  ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40"
+                  : "text-[#8b949e] hover:text-[#c9d1d9]"
               }`}
               title="Active Users"
             >
@@ -580,20 +686,20 @@ function App() {
                 <div className="flex items-center justify-between mb-3 px-1">
                   <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Explorer</span>
                   <button
-                    onClick={() => setIsCreatingFile(!isCreatingFile)}
+                    onClick={() => setIsCreatingItem(!isCreatingItem)}
                     className="px-2 py-0.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded border border-[#30363d] cursor-pointer"
                   >
-                    + New File
+                    + New
                   </button>
                 </div>
 
-                {isCreatingFile && (
-                  <form onSubmit={handleCreateFile} className="mb-3 flex gap-1">
+                {isCreatingItem && (
+                  <form onSubmit={handleCreateItem} className="mb-3 flex gap-1">
                     <input
                       type="text"
-                      placeholder="filename.js, app.py, code.c..."
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
+                      placeholder="src/App.jsx, utils/api.js..."
+                      value={newPathName}
+                      onChange={(e) => setNewPathName(e.target.value)}
                       className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none"
                       autoFocus
                     />
@@ -606,14 +712,15 @@ function App() {
                   </form>
                 )}
 
-                <ul className="flex-1 overflow-y-auto space-y-1 pr-1">
-                  {filesList.map((fileName) => {
-                    const isSelected = fileName === activeFileName
-                    const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
+                <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                  {/* Root Level Files */}
+                  {fileTree.files.map((filePath) => {
+                    const isSelected = filePath === activeFileName
+                    const fileLang = fileLanguages[filePath] || getLanguageFromFileName(filePath)
                     return (
-                      <li
-                        key={fileName}
-                        onClick={() => handleSelectFile(fileName)}
+                      <div
+                        key={filePath}
+                        onClick={() => handleSelectFile(filePath)}
                         className={`group px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium cursor-pointer transition-colors border ${
                           isSelected
                             ? "bg-[#1f6feb]/15 border-[#1f6feb]/40 text-[#58a6ff] font-semibold"
@@ -636,20 +743,25 @@ function App() {
                             {fileLang === "sql" && "🗄️"}
                             {fileLang === "json" && "📋"}
                           </span>
-                          <span className="truncate">{fileName}</span>
+                          <span className="truncate">{filePath}</span>
                         </div>
 
                         <button
-                          onClick={(e) => handleDeleteFile(fileName, e)}
+                          onClick={(e) => handleDeleteFile(filePath, e)}
                           className="opacity-0 group-hover:opacity-100 hover:text-[#f85149] text-[#8b949e] text-xs px-1 cursor-pointer"
                           title="Delete file"
                         >
                           ✕
                         </button>
-                      </li>
+                      </div>
                     )
                   })}
-                </ul>
+
+                  {/* Folders & Subdirectories */}
+                  {Object.keys(fileTree.folders).map((folderName) =>
+                    renderFolderNode(folderName, fileTree.folders[folderName])
+                  )}
+                </div>
               </div>
             )}
 
