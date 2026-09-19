@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: codesync-backend
+    restart: always
+    ports:
+      - "1234:1234"
+    volumes:
+      - backend-storage:/app/storage
+    environment:
+      - PORT=1234
+      - HOST=0.0.0.0
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: codesync-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend-storage:
