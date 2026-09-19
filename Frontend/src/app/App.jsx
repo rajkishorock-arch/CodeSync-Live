@@ -6,7 +6,7 @@ import * as Y from "yjs"
 import { WebsocketProvider } from "y-websocket"
 
 const LANGUAGE_CONFIG = [
-  { id: "javascript", label: "JavaScript (Node.js)", judge0Id: 63, ext: ".js" },
+  { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
   { id: "python", label: "Python 3", judge0Id: 71, ext: ".py" },
   { id: "cpp", label: "C++ (GCC)", judge0Id: 54, ext: ".cpp" },
   { id: "c", label: "C (GCC)", judge0Id: 50, ext: ".c" },
@@ -15,7 +15,7 @@ const LANGUAGE_CONFIG = [
   { id: "html", label: "HTML5", judge0Id: null, ext: ".html" },
   { id: "css", label: "CSS3", judge0Id: null, ext: ".css" },
   { id: "go", label: "Go", judge0Id: 60, ext: ".go" },
-  { id: "rust", label: "Rust", judge0Id: 73, ext: ".rs text-white" },
+  { id: "rust", label: "Rust", judge0Id: 73, ext: ".rs" },
   { id: "php", label: "PHP", judge0Id: 68, ext: ".php" },
   { id: "sql", label: "SQL", judge0Id: 82, ext: ".sql" },
   { id: "json", label: "JSON", judge0Id: null, ext: ".json" }
@@ -92,6 +92,9 @@ function App() {
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
 
+  // Program Input (stdin) state for interactive programs (scanf, cin, input)
+  const [stdinInput, setStdinInput] = useState("")
+
   // Execution & Console State
   const [isRunning, setIsRunning] = useState(false)
   const [consoleOutput, setConsoleOutput] = useState(null)
@@ -102,7 +105,7 @@ function App() {
   const yFilesMap = useMemo(() => ydoc.getMap("files_meta"), [ydoc])
   const yChatArray = useMemo(() => ydoc.getArray("chat_messages"), [ydoc])
 
-  // Current file language (manual override or extension-based)
+  // Current file language
   const language = useMemo(() => {
     if (fileLanguages[activeFileName]) return fileLanguages[activeFileName]
     return getLanguageFromFileName(activeFileName)
@@ -143,7 +146,6 @@ function App() {
     }
   }
 
-  // Handle explicit language selection change from dropdown
   const handleManualLanguageChange = (newLang) => {
     setFileLanguages(prev => ({ ...prev, [activeFileName]: newLang }))
   }
@@ -277,7 +279,7 @@ function App() {
     }
   }, [username, ydoc])
 
-  // Multi-Engine Execution
+  // Multi-Engine Execution with Stdin Support
   const handleRunCode = async () => {
     const activeFileYText = ydoc.getText(`file_${activeFileName}`)
     const codeToRun = activeFileYText.toString()
@@ -291,6 +293,7 @@ function App() {
     setShowConsole(true)
     setIsRunning(true)
 
+    // Mode 1: HTML / CSS
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
@@ -310,6 +313,7 @@ function App() {
       return
     }
 
+    // Mode 2: In-Browser JS Engine
     if (language === "javascript" || language === "typescript") {
       const logs = []
       const customConsole = {
@@ -350,6 +354,7 @@ function App() {
       return
     }
 
+    // Mode 3: Judge0 API for C, C++, Python, Java, Go, Rust, etc.
     const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
     try {
       const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
@@ -359,7 +364,8 @@ function App() {
         },
         body: JSON.stringify({
           source_code: codeToRun,
-          language_id: langObj?.judge0Id || 71
+          language_id: langObj?.judge0Id || 50,
+          stdin: stdinInput || ""
         })
       })
 
@@ -369,10 +375,20 @@ function App() {
       const stderr = data.stderr || (data.compile_output || "")
       const isErr = !!stderr || (data.status && data.status.id !== 3)
 
+      let outputMessage = stdout
+      let statusText = data.status ? data.status.description : "Completed"
+
+      // Helpful tip if interactive program failed due to missing stdin input
+      if (isErr && data.status && data.status.id !== 3) {
+        if (!stdinInput.trim() && (codeToRun.includes("scanf") || codeToRun.includes("cin") || codeToRun.includes("input("))) {
+          outputMessage = stdout + "\n\n💡 TIP: Your program requires user input (scanf / cin / input).\nPlease enter your input values in the 'Program Input (stdin)' box below and click 'Run Code' again!"
+        }
+      }
+
       setConsoleOutput({
-        stdout: stdout,
+        stdout: outputMessage,
         stderr: stderr,
-        status: data.status ? data.status.description : "Completed",
+        status: statusText,
         time: data.time ? `${data.time}s` : "Finished",
         isError: isErr
       })
@@ -389,7 +405,7 @@ function App() {
     }
   }
 
-  // Welcome / Login Screen
+  // Welcome Screen
   if (!username) {
     return (
       <main className="min-h-screen w-full bg-[#0d1117] flex items-center justify-center p-4 font-sans text-[#c9d1d9]">
@@ -424,7 +440,7 @@ function App() {
 
   return (
     <div className="h-screen w-full bg-[#0d1117] flex flex-col font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30 relative">
-      {/* Responsive Top Application Header Bar */}
+      {/* Header Bar */}
       <header className="h-12 bg-[#161b22] border-b border-[#30363d] px-3 sm:px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 sm:gap-4">
           <button
@@ -446,7 +462,6 @@ function App() {
           </div>
         </div>
 
-        {/* User Avatars & Execution Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden sm:flex items-center -space-x-1.5 overflow-hidden">
             {users.map((u, i) => (
@@ -563,7 +578,7 @@ function App() {
                   <form onSubmit={handleCreateFile} className="mb-3 flex gap-1">
                     <input
                       type="text"
-                      placeholder="filename.js, app.py, code.cpp..."
+                      placeholder="filename.js, app.py, code.c..."
                       value={newFileName}
                       onChange={(e) => setNewFileName(e.target.value)}
                       className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none"
@@ -743,10 +758,9 @@ function App() {
             })}
           </div>
 
-          {/* Sub-Header Toolbar (Explicit Language Selector Dropdown) */}
+          {/* Sub-Header Toolbar */}
           <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2 sm:gap-4">
-              {/* Explicit Language Dropdown Selector */}
               <div className="flex items-center gap-1.5">
                 <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Language:</span>
                 <select
@@ -801,9 +815,10 @@ function App() {
             />
           </div>
 
-          {/* Terminal Console Output Drawer */}
+          {/* Terminal Console Output & Program Stdin Drawer */}
           {showConsole && (
-            <div className="h-40 sm:h-44 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
+            <div className="h-52 sm:h-56 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
+              {/* Terminal Header */}
               <div className="px-3 py-1.5 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e]">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5">
@@ -821,49 +836,72 @@ function App() {
                     </span>
                   )}
                 </div>
-                {consoleOutput && (
-                  <button
-                    onClick={() => setConsoleOutput(null)}
-                    className="hover:text-[#f0f6fc] text-[#8b949e] cursor-pointer px-2 py-0.5 rounded bg-[#21262d] text-[11px]"
-                  >
-                    Clear
-                  </button>
-                )}
+
+                <div className="flex items-center gap-2">
+                  {consoleOutput && (
+                    <button
+                      onClick={() => setConsoleOutput(null)}
+                      className="hover:text-[#f0f6fc] text-[#8b949e] cursor-pointer px-2 py-0.5 rounded bg-[#21262d] text-[11px]"
+                    >
+                      Clear Output
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="p-3 flex-1 overflow-y-auto text-[#c9d1d9] selection:bg-[#1f6feb]/30">
-                {isRunning && (
-                  <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
-                    <span className="w-3 h-3 border-2 border-[#d29922] border-t-transparent rounded-full animate-spin"></span>
-                    Executing code...
+              {/* Terminal Split: Stdin Input Box + Output Box */}
+              <div className="flex-1 flex flex-col sm:flex-row overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-[#30363d]">
+                {/* Program Input (stdin) Box for scanf / cin / input */}
+                {(language === "c" || language === "cpp" || language === "python" || language === "java" || language === "go") && (
+                  <div className="w-full sm:w-1/3 bg-[#161b22]/50 p-2 flex flex-col gap-1 shrink-0">
+                    <label className="text-[10px] font-bold text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
+                      <span>Program Input (stdin)</span>
+                      <span className="text-[9px] text-[#58a6ff] font-normal">For scanf / cin / input</span>
+                    </label>
+                    <textarea
+                      value={stdinInput}
+                      onChange={(e) => setStdinInput(e.target.value)}
+                      placeholder="Enter inputs here (e.g. 1&#10;10 20)..."
+                      className="flex-1 w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-xs text-[#f0f6fc] font-mono focus:outline-none focus:border-[#58a6ff] resize-none"
+                    />
                   </div>
                 )}
 
-                {(language === "html" || language === "css") && htmlPreview && !isRunning && (
-                  <div className="w-full h-full border border-[#30363d] bg-white rounded overflow-hidden">
-                    <iframe title="HTML Preview" srcDoc={htmlPreview} className="w-full h-full border-0" />
-                  </div>
-                )}
+                {/* Execution Output Box */}
+                <div className="flex-1 p-3 overflow-y-auto text-[#c9d1d9] selection:bg-[#1f6feb]/30">
+                  {isRunning && (
+                    <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
+                      <span className="w-3 h-3 border-2 border-[#d29922] border-t-transparent rounded-full animate-spin"></span>
+                      Executing code...
+                    </div>
+                  )}
 
-                {!isRunning && consoleOutput && (
-                  <>
-                    {consoleOutput.stdout && (
-                      <pre className="whitespace-pre-wrap font-mono leading-relaxed text-[#f0f6fc]">{consoleOutput.stdout}</pre>
-                    )}
-                    {consoleOutput.stderr && (
-                      <div className="p-2 rounded bg-[#f85149]/15 border border-[#f85149]/30 text-[#ff7b72] whitespace-pre-wrap font-mono">
-                        <span className="font-bold text-[#f85149] block mb-1">Execution Error:</span>
-                        {consoleOutput.stderr}
-                      </div>
-                    )}
-                  </>
-                )}
+                  {(language === "html" || language === "css") && htmlPreview && !isRunning && (
+                    <div className="w-full h-full border border-[#30363d] bg-white rounded overflow-hidden">
+                      <iframe title="HTML Preview" srcDoc={htmlPreview} className="w-full h-full border-0" />
+                    </div>
+                  )}
 
-                {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
-                  <div className="text-[#8b949e] italic font-sans text-xs">
-                    Click green <strong className="text-[#3fb950] font-semibold">"▶ Run Code"</strong> button to execute code...
-                  </div>
-                )}
+                  {!isRunning && consoleOutput && (
+                    <>
+                      {consoleOutput.stdout && (
+                        <pre className="whitespace-pre-wrap font-mono leading-relaxed text-[#f0f6fc]">{consoleOutput.stdout}</pre>
+                      )}
+                      {consoleOutput.stderr && (
+                        <div className="p-2 rounded bg-[#f85149]/15 border border-[#f85149]/30 text-[#ff7b72] whitespace-pre-wrap font-mono">
+                          <span className="font-bold text-[#f85149] block mb-1">Execution Error:</span>
+                          {consoleOutput.stderr}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
+                    <div className="text-[#8b949e] italic font-sans text-xs">
+                      Click green <strong className="text-[#3fb950] font-semibold">"▶ Run Code"</strong> button to execute code...
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
