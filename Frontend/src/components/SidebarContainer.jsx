@@ -6,6 +6,7 @@ import AiAssistant from "./AiAssistant"
 import RoomChat from "./RoomChat"
 import ActiveUsers from "./ActiveUsers"
 import SidebarSettings from "./SidebarSettings"
+import GlobalSearchPanel from "./GlobalSearchPanel"
 
 export default function SidebarContainer({
   isSidebarOpen,
@@ -95,6 +96,21 @@ export default function SidebarContainer({
               handleCreateItem={handleCreateItem}
               expandedFolders={expandedFolders}
               toggleFolder={toggleFolder}
+            />
+          )}
+
+          {activeSidebarTab === "search" && (
+            <GlobalSearchPanel
+              filesList={filesList}
+              docRef={docRef}
+              onSelectResult={(fileName, lineNumber) => {
+                handleSelectFile(fileName)
+                if (editorRef.current) {
+                  editorRef.current.revealLineInCenter(lineNumber)
+                  editorRef.current.setPosition({ lineNumber, column: 1 })
+                  editorRef.current.focus()
+                }
+              }}
             />
           )}
 

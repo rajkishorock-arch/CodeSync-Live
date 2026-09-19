@@ -22,6 +22,18 @@ export default function ActivityBar({
       </button>
 
       <button
+        onClick={() => setActiveSidebarTab(activeSidebarTab === "search" ? null : "search")}
+        className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
+          activeSidebarTab === "search"
+            ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
+            : "text-[#8b949e] hover:text-[#c9d1d9]"
+        }`}
+        title="Global Search & Replace (Ctrl+Shift+F)"
+      >
+        🔍
+      </button>
+
+      <button
         onClick={() => setActiveSidebarTab(activeSidebarTab === "git" ? null : "git")}
         className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
           activeSidebarTab === "git"

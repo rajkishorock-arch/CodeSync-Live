@@ -15,6 +15,9 @@ import TerminalDrawer from "../components/TerminalDrawer"
 import DiffViewer from "../components/DiffViewer"
 import SidebarContainer from "../components/SidebarContainer"
 import EditorToolbar from "../components/EditorToolbar"
+import CommandPalette from "../components/CommandPalette"
+import Breadcrumbs from "../components/Breadcrumbs"
+import { formatCode } from "../utils/formatUtils"
 
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
@@ -96,6 +99,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [commits, setCommits] = useState([])
   const [copiedLink, setCopiedLink] = useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
   
   // Resizable Sidebar & Terminal Drawer State
   const [sidebarWidth, setSidebarWidth] = useState(260)
@@ -200,6 +204,37 @@ function App() {
     if (fileLanguages[activeFileName]) return fileLanguages[activeFileName]
     return getLanguageFromFileName(activeFileName)
   }, [activeFileName, fileLanguages])
+
+  // Code Formatting Handler
+  const handleFormatActiveDocument = () => {
+    const activeFileYText = ydoc.getText(`file_${activeFileName}`)
+    const code = activeFileYText.toString()
+    if (!code) return
+    const formatted = formatCode(code, language)
+    if (formatted !== code) {
+      activeFileYText.delete(0, activeFileYText.length)
+      activeFileYText.insert(0, formatted)
+    }
+  }
+
+  // Global Keyboard Shortcuts (Ctrl+Shift+P, Ctrl+Shift+F, Shift+Alt+F)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "p") || e.key === "F1") {
+        e.preventDefault()
+        setIsCommandPaletteOpen((prev) => !prev)
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault()
+        setActiveSidebarTab("search")
+      } else if (e.shiftKey && e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault()
+        handleFormatActiveDocument()
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalKeyDown)
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown)
+  }, [activeFileName, language, ydoc])
 
   // Build Folder Tree Hierarchy from flat file paths
   const fileTree = useMemo(() => {
@@ -548,6 +583,94 @@ function App() {
     }
   }
 
+  // Command Palette Actions
+  const commandPaletteActions = useMemo(
+    () => [
+      { id: "run", label: "Run Code", category: "Execution", icon: "▶", shortcut: "Ctrl+Enter", perform: handleRunCode },
+      {
+        id: "format",
+        label: "Format Document",
+        category: "Editor",
+        icon: "✨",
+        shortcut: "Shift+Alt+F",
+        perform: handleFormatActiveDocument
+      },
+      {
+        id: "search",
+        label: "Search & Replace in Workspace",
+        category: "Navigation",
+        icon: "🔍",
+        shortcut: "Ctrl+Shift+F",
+        perform: () => setActiveSidebarTab("search")
+      },
+      {
+        id: "diff",
+        label: "Toggle Version Diff View",
+        category: "Git",
+        icon: "⇄",
+        shortcut: "",
+        perform: () => setShowDiffView((prev) => !prev)
+      },
+      {
+        id: "terminal",
+        label: "Toggle Terminal Drawer",
+        category: "View",
+        icon: "🔽",
+        shortcut: "",
+        perform: () => setShowConsole((prev) => !prev)
+      },
+      {
+        id: "explorer",
+        label: "Open File Explorer",
+        category: "View",
+        icon: "📁",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("files")
+      },
+      {
+        id: "git",
+        label: "Open Git Source Control",
+        category: "Git",
+        icon: "🌿",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("git")
+      },
+      {
+        id: "ai",
+        label: "Open AI Pair Programmer",
+        category: "AI",
+        icon: "✨",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("ai")
+      },
+      {
+        id: "chat",
+        label: "Open Room Chat",
+        category: "Collaboration",
+        icon: "💬",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("chat")
+      },
+      {
+        id: "users",
+        label: "Open Active Collaborators",
+        category: "Collaboration",
+        icon: "👥",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("users")
+      },
+      {
+        id: "settings",
+        label: "Open Workspace Settings",
+        category: "Preferences",
+        icon: "⚙️",
+        shortcut: "",
+        perform: () => setActiveSidebarTab("settings")
+      }
+    ],
+    [handleRunCode, language, activeFileName, ydoc]
+  )
+
   // Helper Component to Render Recursive Folder Tree
   const renderFolderNode = (folderName, folderData, depth = 0) => {
     const isExpanded = expandedFolders[folderData.path]
@@ -729,6 +852,15 @@ function App() {
             isRunning={isRunning}
             showConsole={showConsole}
             setShowConsole={setShowConsole}
+            onFormatCode={handleFormatActiveDocument}
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          />
+
+          {/* Breadcrumb Path Bar */}
+          <Breadcrumbs
+            activeFileName={activeFileName}
+            fileLanguages={fileLanguages}
+            getLanguageFromFileName={getLanguageFromFileName}
           />
 
           {/* Main Monaco Editor Container or Diff Viewer */}
@@ -788,6 +920,13 @@ function App() {
           />
         </section>
       </div>
+
+      {/* Global IDE Command Palette Modal */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        actions={commandPaletteActions}
+      />
     </div>
   )
 }

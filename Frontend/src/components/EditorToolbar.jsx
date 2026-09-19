@@ -13,7 +13,9 @@ export default function EditorToolbar({
   handleRunCode,
   isRunning,
   showConsole,
-  setShowConsole
+  setShowConsole,
+  onFormatCode,
+  onOpenCommandPalette
 }) {
   return (
     <div className="flex items-center justify-between bg-[#161b22] border-b border-[#30363d] px-2 pt-1 pb-1 gap-2 shrink-0 select-none">
@@ -60,8 +62,28 @@ export default function EditorToolbar({
         })}
       </div>
 
-      {/* Right: Actions (Diff View, Run Code, Hide Terminal) */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Right: Actions (Command Palette, Format, Diff View, Run Code, Hide Terminal) */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Command Palette Button */}
+        <button
+          onClick={onOpenCommandPalette}
+          className="px-2 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded transition-colors cursor-pointer text-xs font-medium flex items-center gap-1"
+          title="Open Command Palette (Ctrl+Shift+P)"
+        >
+          <span>⌘</span>
+          <span className="hidden md:inline">Palette</span>
+        </button>
+
+        {/* Format Document Button */}
+        <button
+          onClick={onFormatCode}
+          className="px-2 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded transition-colors cursor-pointer text-xs font-medium flex items-center gap-1"
+          title="Format Code (Shift+Alt+F)"
+        >
+          <span>✨</span>
+          <span className="hidden md:inline">Format</span>
+        </button>
+
         {/* Version Diff View Button */}
         <button
           onClick={() => setShowDiffView(!showDiffView)}
