@@ -219,7 +219,7 @@ function App() {
 
   useEffect(() => {
     if (username) {
-      const websocketUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
+      const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL || `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
       const provider = new WebsocketProvider(websocketUrl, "monaco", ydoc)
 
       provider.awareness.setLocalStateField("user", { username })
