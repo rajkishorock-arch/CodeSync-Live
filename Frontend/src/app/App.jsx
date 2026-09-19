@@ -80,6 +80,9 @@ function App() {
   const [username, setUsername] = useState(() => {
     return new URLSearchParams(window.location.search).get("username") || ""
   })
+  const roomId = useMemo(() => {
+    return new URLSearchParams(window.location.search).get("room") || "default"
+  }, [])
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState("vs-dark")
   const [fontSize, setFontSize] = useState(14)
