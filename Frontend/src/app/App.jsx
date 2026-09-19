@@ -6,34 +6,52 @@ import * as Y from "yjs"
 import { WebsocketProvider } from "y-websocket"
 
 const LANGUAGE_CONFIG = [
-  { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
+  { id: "javascript", label: "JavaScript (Node.js)", judge0Id: 63, ext: ".js" },
   { id: "python", label: "Python 3", judge0Id: 71, ext: ".py" },
-  { id: "cpp", label: "C / C++", judge0Id: 54, ext: ".cpp" },
+  { id: "cpp", label: "C++ (GCC)", judge0Id: 54, ext: ".cpp" },
+  { id: "c", label: "C (GCC)", judge0Id: 50, ext: ".c" },
   { id: "java", label: "Java", judge0Id: 62, ext: ".java" },
   { id: "typescript", label: "TypeScript", judge0Id: 74, ext: ".ts" },
   { id: "html", label: "HTML5", judge0Id: null, ext: ".html" },
-  { id: "css", label: "CSS3", judge0Id: null, ext: ".css" }
+  { id: "css", label: "CSS3", judge0Id: null, ext: ".css" },
+  { id: "go", label: "Go", judge0Id: 60, ext: ".go" },
+  { id: "rust", label: "Rust", judge0Id: 73, ext: ".rs text-white" },
+  { id: "php", label: "PHP", judge0Id: 68, ext: ".php" },
+  { id: "sql", label: "SQL", judge0Id: 82, ext: ".sql" },
+  { id: "json", label: "JSON", judge0Id: null, ext: ".json" }
 ]
 
 const STARTER_SNIPPETS = {
-  javascript: `// JavaScript Live Demo\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync User");\n`,
-  python: `# Python 3 Live Demo\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync User")\n`,
-  cpp: `// C/C++ Live Demo\n#include <stdio.h>\n\nint main() {\n    printf("Hello, CodeSync User!\\n");\n    return 0;\n}\n`,
-  java: `// Java Live Demo\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync User!");\n    }\n}\n`,
-  typescript: `// TypeScript Live Demo\nconst greeting: string = "Hello, CodeSync User!";\nconsole.log(greeting);\n`,
+  javascript: `// JavaScript Live Demo\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync Developer");\n`,
+  python: `# Python 3 Live Demo\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync Developer")\n`,
+  cpp: `// C++ Live Demo\n#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, CodeSync Developer!" << endl;\n    return 0;\n}\n`,
+  c: `// C Live Demo\n#include <stdio.h>\n\nint main() {\n    printf("Hello, CodeSync Developer!\\n");\n    return 0;\n}\n`,
+  java: `// Java Live Demo\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync Developer!");\n    }\n}\n`,
+  typescript: `// TypeScript Live Demo\nconst greeting: string = "Hello, CodeSync Developer!";\nconsole.log(greeting);\n`,
   html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; text-align: center; }\n    h1 { color: #58a6ff; font-weight: 600; }\n  </style>\n</head>\n<body>\n  <h1>Hello from CodeSync Live!</h1>\n  <p>Edit HTML and click Run Code to update live preview.</p>\n</body>\n</html>\n`,
-  css: `/* CSS Live Demo */\nbody {\n  background-color: #0d1117;\n  color: #58a6ff;\n}\n`
+  css: `/* CSS Live Demo */\nbody {\n  background-color: #0d1117;\n  color: #58a6ff;\n}\n`,
+  go: `// Go Live Demo\npackage main\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, CodeSync Developer!")\n}\n`,
+  rust: `// Rust Live Demo\nfn main() {\n    println!("Hello, CodeSync Developer!");\n}\n`,
+  php: `<?php\n// PHP Live Demo\necho "Hello, CodeSync Developer!\\n";\n?>\n`,
+  sql: `-- SQL Demo\nCREATE TABLE users (id INT, name VARCHAR(50));\nINSERT INTO users VALUES (1, 'Raj');\nSELECT * FROM users;\n`,
+  json: `{\n  "appName": "CodeSync Live",\n  "version": "1.0.0",\n  "status": "Active"\n}\n`
 }
 
 function getLanguageFromFileName(filename) {
   if (!filename) return "javascript"
   const lower = filename.toLowerCase()
   if (lower.endsWith(".py")) return "python"
-  if (lower.endsWith(".c") || lower.endsWith(".cpp") || lower.endsWith(".cc")) return "cpp"
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc")) return "cpp"
+  if (lower.endsWith(".c")) return "c"
   if (lower.endsWith(".java")) return "java"
   if (lower.endsWith(".ts")) return "typescript"
   if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html"
   if (lower.endsWith(".css")) return "css"
+  if (lower.endsWith(".go")) return "go"
+  if (lower.endsWith(".rs")) return "rust"
+  if (lower.endsWith(".php")) return "php"
+  if (lower.endsWith(".sql")) return "sql"
+  if (lower.endsWith(".json")) return "json"
   return "javascript"
 }
 
@@ -67,6 +85,9 @@ function App() {
   const [newFileName, setNewFileName] = useState("")
   const [isCreatingFile, setIsCreatingFile] = useState(false)
 
+  // Manual language override state per file
+  const [fileLanguages, setFileLanguages] = useState({})
+
   // Chat state
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
@@ -81,7 +102,11 @@ function App() {
   const yFilesMap = useMemo(() => ydoc.getMap("files_meta"), [ydoc])
   const yChatArray = useMemo(() => ydoc.getArray("chat_messages"), [ydoc])
 
-  const language = useMemo(() => getLanguageFromFileName(activeFileName), [activeFileName])
+  // Current file language (manual override or extension-based)
+  const language = useMemo(() => {
+    if (fileLanguages[activeFileName]) return fileLanguages[activeFileName]
+    return getLanguageFromFileName(activeFileName)
+  }, [activeFileName, fileLanguages])
 
   const bindEditorToFile = (fileName, editor = editorRef.current) => {
     if (!editor) return
@@ -94,7 +119,7 @@ function App() {
     const fileYText = ydoc.getText(`file_${fileName}`)
 
     if (fileYText.toString().trim() === "") {
-      const fileLang = getLanguageFromFileName(fileName)
+      const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
       fileYText.insert(0, STARTER_SNIPPETS[fileLang] || `// ${fileName}\n`)
     }
 
@@ -113,10 +138,14 @@ function App() {
   const handleSelectFile = (fileName) => {
     setActiveFileName(fileName)
     bindEditorToFile(fileName)
-    // Auto-close sidebar on mobile after choosing a file
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false)
     }
+  }
+
+  // Handle explicit language selection change from dropdown
+  const handleManualLanguageChange = (newLang) => {
+    setFileLanguages(prev => ({ ...prev, [activeFileName]: newLang }))
   }
 
   const handleCreateFile = (e) => {
@@ -398,7 +427,6 @@ function App() {
       {/* Responsive Top Application Header Bar */}
       <header className="h-12 bg-[#161b22] border-b border-[#30363d] px-3 sm:px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Mobile Sidebar Toggle Button */}
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="md:hidden px-2 py-1 bg-[#21262d] border border-[#30363d] rounded text-xs text-[#c9d1d9] cursor-pointer"
@@ -420,7 +448,6 @@ function App() {
 
         {/* User Avatars & Execution Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Active User Avatars */}
           <div className="hidden sm:flex items-center -space-x-1.5 overflow-hidden">
             {users.map((u, i) => (
               <div
@@ -457,7 +484,7 @@ function App() {
             ) : (
               <>
                 <span>▶</span>
-                <span>Run</span>
+                <span>Run Code</span>
               </>
             )}
           </button>
@@ -466,7 +493,6 @@ function App() {
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Backdrop overlay for mobile sidebar */}
         {isSidebarOpen && (
           <div
             onClick={() => setIsSidebarOpen(false)}
@@ -474,13 +500,13 @@ function App() {
           />
         )}
 
-        {/* Responsive Sidebar (Fixed on Desktop, Slide-over Drawer on Mobile) */}
+        {/* Sidebar */}
         <aside
           className={`${
             isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0 transition-transform duration-200 ease-in-out fixed md:relative z-40 inset-y-12 left-0 w-72 md:w-64 bg-[#161b22] border-r border-[#30363d] flex shrink-0 shadow-2xl md:shadow-none`}
         >
-          {/* Left Activity Bar Icons */}
+          {/* Activity Bar Icons */}
           <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-2 gap-3 shrink-0">
             <button
               onClick={() => setActiveSidebarTab("files")}
@@ -521,7 +547,6 @@ function App() {
 
           {/* Sidebar Tab Content */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
-            {/* Tab 1: File Explorer */}
             {activeSidebarTab === "files" && (
               <div className="flex-1 flex flex-col p-3 overflow-hidden">
                 <div className="flex items-center justify-between mb-3 px-1">
@@ -538,7 +563,7 @@ function App() {
                   <form onSubmit={handleCreateFile} className="mb-3 flex gap-1">
                     <input
                       type="text"
-                      placeholder="filename.js"
+                      placeholder="filename.js, app.py, code.cpp..."
                       value={newFileName}
                       onChange={(e) => setNewFileName(e.target.value)}
                       className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none"
@@ -556,7 +581,7 @@ function App() {
                 <ul className="flex-1 overflow-y-auto space-y-1 pr-1">
                   {filesList.map((fileName) => {
                     const isSelected = fileName === activeFileName
-                    const fileLang = getLanguageFromFileName(fileName)
+                    const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
                     return (
                       <li
                         key={fileName}
@@ -572,10 +597,16 @@ function App() {
                             {fileLang === "javascript" && "📜"}
                             {fileLang === "python" && "🐍"}
                             {fileLang === "cpp" && "⚙️"}
+                            {fileLang === "c" && "⚙️"}
                             {fileLang === "java" && "☕"}
                             {fileLang === "typescript" && "📘"}
                             {fileLang === "html" && "🌐"}
                             {fileLang === "css" && "🎨"}
+                            {fileLang === "go" && "🐹"}
+                            {fileLang === "rust" && "🦀"}
+                            {fileLang === "php" && "🐘"}
+                            {fileLang === "sql" && "🗄️"}
+                            {fileLang === "json" && "📋"}
                           </span>
                           <span className="truncate">{fileName}</span>
                         </div>
@@ -594,7 +625,6 @@ function App() {
               </div>
             )}
 
-            {/* Tab 2: Room Chat */}
             {activeSidebarTab === "chat" && (
               <div className="flex-1 flex flex-col p-3 overflow-hidden">
                 <div className="flex items-center justify-between mb-2 px-1">
@@ -637,7 +667,6 @@ function App() {
               </div>
             )}
 
-            {/* Tab 3: Users */}
             {activeSidebarTab === "users" && (
               <div className="flex-1 flex flex-col p-3 overflow-hidden">
                 <div className="flex items-center justify-between mb-2 px-1">
@@ -667,7 +696,6 @@ function App() {
               </div>
             )}
 
-            {/* Sidebar Footer */}
             <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[#3fb950]">
                 <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
@@ -677,13 +705,13 @@ function App() {
           </div>
         </aside>
 
-        {/* Main Editor Section (Takes 100% Width on Mobile) */}
+        {/* Main Editor Section */}
         <section className="flex-1 h-full flex flex-col bg-[#0d1117] overflow-hidden w-full min-w-0">
           {/* File Tabs Bar */}
           <div className="flex items-center bg-[#161b22] border-b border-[#30363d] overflow-x-auto px-1 pt-1 gap-1 scrollbar-none">
             {filesList.map((fileName) => {
               const isActive = fileName === activeFileName
-              const fileLang = getLanguageFromFileName(fileName)
+              const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
               return (
                 <button
                   key={fileName}
@@ -698,10 +726,16 @@ function App() {
                     {fileLang === "javascript" && "📜"}
                     {fileLang === "python" && "🐍"}
                     {fileLang === "cpp" && "⚙️"}
+                    {fileLang === "c" && "⚙️"}
                     {fileLang === "java" && "☕"}
                     {fileLang === "typescript" && "📘"}
                     {fileLang === "html" && "🌐"}
                     {fileLang === "css" && "🎨"}
+                    {fileLang === "go" && "🐹"}
+                    {fileLang === "rust" && "🦀"}
+                    {fileLang === "php" && "🐘"}
+                    {fileLang === "sql" && "🗄️"}
+                    {fileLang === "json" && "📋"}
                   </span>
                   <span>{fileName}</span>
                 </button>
@@ -709,14 +743,23 @@ function App() {
             })}
           </div>
 
-          {/* Sub-Header Toolbar */}
+          {/* Sub-Header Toolbar (Explicit Language Selector Dropdown) */}
           <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex items-center gap-1">
-                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Lang:</span>
-                <span className="px-2 py-0.5 bg-[#161b22] border border-[#30363d] text-[#58a6ff] font-bold rounded uppercase text-xs">
-                  {language}
-                </span>
+              {/* Explicit Language Dropdown Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Language:</span>
+                <select
+                  value={language}
+                  onChange={(e) => handleManualLanguageChange(e.target.value)}
+                  className="bg-[#161b22] border border-[#30363d] text-[#58a6ff] font-bold rounded px-2.5 py-1 focus:outline-none cursor-pointer text-xs"
+                >
+                  {LANGUAGE_CONFIG.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="hidden sm:flex items-center gap-1.5">
@@ -724,7 +767,7 @@ function App() {
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-2 py-0.5 focus:outline-none"
+                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-2 py-0.5 focus:outline-none cursor-pointer"
                 >
                   <option value="vs-dark">VS Dark</option>
                   <option value="light">VS Light</option>
@@ -741,7 +784,7 @@ function App() {
             </button>
           </div>
 
-          {/* Monaco Editor Container (Full Width) */}
+          {/* Monaco Editor Container */}
           <div className="flex-1 relative overflow-hidden">
             <Editor
               height="100%"
@@ -749,7 +792,7 @@ function App() {
               theme={theme}
               options={{
                 fontSize: fontSize,
-                minimap: { enabled: false }, // Disabled minimap on mobile for more space
+                minimap: { enabled: false },
                 automaticLayout: true,
                 scrollBeyondLastLine: false,
                 padding: { top: 8, bottom: 8 }
@@ -761,7 +804,6 @@ function App() {
           {/* Terminal Console Output Drawer */}
           {showConsole && (
             <div className="h-40 sm:h-44 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
-              {/* Terminal Header */}
               <div className="px-3 py-1.5 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e]">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5">
@@ -789,7 +831,6 @@ function App() {
                 )}
               </div>
 
-              {/* Terminal Output Body */}
               <div className="p-3 flex-1 overflow-y-auto text-[#c9d1d9] selection:bg-[#1f6feb]/30">
                 {isRunning && (
                   <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
@@ -820,7 +861,7 @@ function App() {
 
                 {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
                   <div className="text-[#8b949e] italic font-sans text-xs">
-                    Click green <strong className="text-[#3fb950] font-semibold">"▶ Run"</strong> button to execute code...
+                    Click green <strong className="text-[#3fb950] font-semibold">"▶ Run Code"</strong> button to execute code...
                   </div>
                 )}
               </div>
