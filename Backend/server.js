@@ -1,5 +1,7 @@
 import fs from "fs"
 import path from "path"
+import { createRequire } from "module"
+import { pathToFileURL } from "url"
 import * as Y from "yjs"
 import { setPersistence } from "y-websocket/bin/utils"
 
@@ -43,4 +45,8 @@ setPersistence({
   },
 })
 
-await import("y-websocket/bin/server")
+const require = createRequire(import.meta.url)
+const yWebsocketDir = path.dirname(require.resolve("y-websocket/package.json"))
+const serverScript = path.join(yWebsocketDir, "bin", "server.cjs")
+
+await import(pathToFileURL(serverScript).href)
