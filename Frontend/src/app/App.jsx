@@ -6,13 +6,13 @@ import * as Y from "yjs"
 import { WebsocketProvider } from "y-websocket"
 
 const LANGUAGE_CONFIG = [
-  { id: "javascript", label: "JavaScript (Node.js)", pistonLang: "javascript", version: "*" },
-  { id: "python", label: "Python 3", pistonLang: "python3", version: "*" },
-  { id: "cpp", label: "C++ (GCC)", pistonLang: "c++", version: "*" },
-  { id: "java", label: "Java", pistonLang: "java", version: "*" },
-  { id: "typescript", label: "TypeScript", pistonLang: "typescript", version: "*" },
-  { id: "html", label: "HTML5", pistonLang: null, version: null },
-  { id: "css", label: "CSS3", pistonLang: null, version: null }
+  { id: "javascript", label: "JavaScript (Node.js)", pistonLang: "javascript", version: "*", ext: ".js" },
+  { id: "python", label: "Python 3", pistonLang: "python3", version: "*", ext: ".py" },
+  { id: "cpp", label: "C++ (GCC)", pistonLang: "c++", version: "*", ext: ".cpp" },
+  { id: "java", label: "Java", pistonLang: "java", version: "*", ext: ".java" },
+  { id: "typescript", label: "TypeScript", pistonLang: "typescript", version: "*", ext: ".ts" },
+  { id: "html", label: "HTML5", pistonLang: null, version: null, ext: ".html" },
+  { id: "css", label: "CSS3", pistonLang: null, version: null, ext: ".css" }
 ]
 
 const STARTER_SNIPPETS = {
@@ -25,41 +25,129 @@ const STARTER_SNIPPETS = {
   css: `/* CSS Live CodeSync Demo */\nbody {\n  background-color: #0f172a;\n  color: #38bdf8;\n  font-family: monospace;\n}\n`
 }
 
+function getLanguageFromFileName(filename) {
+  if (filename.endsWith(".py")) return "python"
+  if (filename.endsWith(".cpp") || filename.endsWith(".cc")) return "cpp"
+  if (filename.endsWith(".java")) return "java"
+  if (filename.endsWith(".ts")) return "typescript"
+  if (filename.endsWith(".html") || filename.endsWith(".htm")) return "html"
+  if (filename.endsWith(".css")) return "css"
+  return "javascript"
+}
+
 function App() {
   const editorRef = useRef(null)
+  const bindingRef = useRef(null)
+  const chatEndRef = useRef(null)
+
   const [username, setUsername] = useState(() => {
     return new URLSearchParams(window.location.search).get("username") || ""
   })
   const [users, setUsers] = useState([])
-  const [language, setLanguage] = useState("javascript")
   const [theme, setTheme] = useState("vs-dark")
   const [fontSize, setFontSize] = useState(14)
   
+  // Sidebar Tab: "users" | "files" | "chat"
+  const [activeSidebarTab, setActiveSidebarTab] = useState("files")
+
+  // Multi-file state
+  const [filesList, setFilesList] = useState(["main.js"])
+  const [activeFileName, setActiveFileName] = useState("main.js")
+  const [newFileName, setNewFileName] = useState("")
+  const [isCreatingFile, setIsCreatingFile] = useState(false)
+
+  // Chat state
+  const [messages, setMessages] = useState([])
+  const [chatInput, setChatInput] = useState("")
+
   // Execution & Console State
   const [isRunning, setIsRunning] = useState(false)
-  const [consoleOutput, setConsoleOutput] = useState(null) // { stdout, stderr, time, status, isError }
+  const [consoleOutput, setConsoleOutput] = useState(null)
   const [showConsole, setShowConsole] = useState(true)
   const [htmlPreview, setHtmlPreview] = useState("")
 
   const ydoc = useMemo(() => new Y.Doc(), [])
-  const yText = useMemo(() => ydoc.getText("monaco"), [ydoc])
+  const yFilesMap = useMemo(() => ydoc.getMap("files_meta"), [ydoc])
+  const yChatArray = useMemo(() => ydoc.getArray("chat_messages"), [ydoc])
   const yConfig = useMemo(() => ydoc.getMap("config"), [ydoc])
+
+  // Current file language
+  const language = useMemo(() => getLanguageFromFileName(activeFileName), [activeFileName])
+
+  // Initialize & Bind Monaco Editor for the active file
+  const bindEditorToFile = (fileName, editor = editorRef.current) => {
+    if (!editor) return
+
+    // Clean up previous binding
+    if (bindingRef.current) {
+      bindingRef.current.destroy()
+      bindingRef.current = null
+    }
+
+    const fileYText = ydoc.getText(`file_${fileName}`)
+
+    // Set starter snippet if file is completely new & empty
+    if (fileYText.toString().trim() === "") {
+      const fileLang = getLanguageFromFileName(fileName)
+      fileYText.insert(0, STARTER_SNIPPETS[fileLang] || `// ${fileName}\n`)
+    }
+
+    bindingRef.current = new MonacoBinding(
+      fileYText,
+      editor.getModel(),
+      new Set([editor]),
+    )
+  }
 
   const handleMount = (editor) => {
     editorRef.current = editor
+    bindEditorToFile(activeFileName, editor)
+  }
 
-    new MonacoBinding(
-      yText,
-      editorRef.current.getModel(),
-      new Set([editorRef.current]),
-    )
+  // Switch Active File
+  const handleSelectFile = (fileName) => {
+    setActiveFileName(fileName)
+    bindEditorToFile(fileName)
+  }
 
-    // Set initial text if empty
-    if (yText.toString().trim() === "") {
-      yText.insert(0, STARTER_SNIPPETS[language] || "")
+  // Create New File
+  const handleCreateFile = (e) => {
+    e.preventDefault()
+    let name = newFileName.trim()
+    if (!name) return
+
+    // Add default extension if missing
+    if (!name.includes(".")) {
+      name += ".js"
+    }
+
+    if (!filesList.includes(name)) {
+      yFilesMap.set(name, { createdBy: username, createdAt: Date.now() })
+      handleSelectFile(name)
+    }
+
+    setNewFileName("")
+    setIsCreatingFile(false)
+  }
+
+  // Delete File
+  const handleDeleteFile = (fileName, e) => {
+    e.stopPropagation()
+    if (filesList.length <= 1) {
+      alert("Cannot delete the last remaining file.")
+      return
+    }
+
+    if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
+      yFilesMap.delete(fileName)
+      const remainingFiles = filesList.filter(f => f !== fileName)
+      if (activeFileName === fileName) {
+        handleSelectFile(remainingFiles[0])
+      }
     }
   }
 
+  // Handle Room Joining
   const handleJoin = (e) => {
     e.preventDefault()
     const nameInput = e.target.username.value.trim()
@@ -69,24 +157,64 @@ function App() {
     }
   }
 
-  // Handle language change sync via Yjs
-  const handleLanguageChange = (newLang) => {
-    setLanguage(newLang)
-    yConfig.set("language", newLang)
+  // Send Chat Message
+  const handleSendChatMessage = (e) => {
+    e.preventDefault()
+    const text = chatInput.trim()
+    if (!text) return
+
+    const msgObj = {
+      id: Date.now(),
+      sender: username,
+      text: text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    yChatArray.push([msgObj])
+    setChatInput("")
   }
 
+  // Sync Yjs Files Map
   useEffect(() => {
-    // Observe Yjs room configuration changes (e.g. language)
-    const handleConfigChange = () => {
-      const roomLang = yConfig.get("language")
-      if (roomLang && roomLang !== language) {
-        setLanguage(roomLang)
+    const handleFilesChange = () => {
+      const currentKeys = Array.from(yFilesMap.keys())
+      if (currentKeys.length === 0) {
+        // Init default files if empty
+        yFilesMap.set("main.js", { createdBy: "System" })
+        yFilesMap.set("index.html", { createdBy: "System" })
+        yFilesMap.set("style.css", { createdBy: "System" })
+        setFilesList(["main.js", "index.html", "style.css"])
+      } else {
+        setFilesList(currentKeys)
       }
     }
-    yConfig.observe(handleConfigChange)
-    return () => yConfig.unobserve(handleConfigChange)
-  }, [yConfig, language])
 
+    yFilesMap.observe(handleFilesChange)
+    handleFilesChange()
+
+    return () => yFilesMap.unobserve(handleFilesChange)
+  }, [yFilesMap])
+
+  // Sync Yjs Chat Array
+  useEffect(() => {
+    const handleChatChange = () => {
+      setMessages(yChatArray.toArray())
+    }
+
+    yChatArray.observe(handleChatChange)
+    setMessages(yChatArray.toArray())
+
+    return () => yChatArray.unobserve(handleChatChange)
+  }, [yChatArray])
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (activeSidebarTab === "chat") {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages, activeSidebarTab])
+
+  // Sync Provider & Awareness
   useEffect(() => {
     if (username) {
       const websocketUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
@@ -117,7 +245,9 @@ function App() {
 
   // Code Execution Engine using Piston API
   const handleRunCode = async () => {
-    const codeToRun = yText.toString()
+    const activeFileYText = ydoc.getText(`file_${activeFileName}`)
+    const codeToRun = activeFileYText.toString()
+
     if (!codeToRun.trim()) {
       setConsoleOutput({ stdout: "", stderr: "No code to execute.", time: 0, status: "Empty", isError: true })
       setShowConsole(true)
@@ -131,9 +261,15 @@ function App() {
 
     // Handle HTML/CSS Live Preview
     if (language === "html" || language === "css") {
-      setHtmlPreview(codeToRun)
+      let combinedHTML = codeToRun
+      if (language === "css") {
+        const htmlCode = ydoc.getText("file_index.html").toString() || "<h1>Live CSS Preview</h1>"
+        combinedHTML = `<style>${codeToRun}</style>${htmlCode}`
+      }
+
+      setHtmlPreview(combinedHTML)
       setConsoleOutput({
-        stdout: "Live HTML/CSS Preview updated.",
+        stdout: `Live ${language.toUpperCase()} Preview updated.`,
         stderr: "",
         time: 0,
         status: "Rendered",
@@ -154,6 +290,7 @@ function App() {
           version: selectedLangObj?.version || "*",
           files: [
             {
+              name: activeFileName,
               content: codeToRun
             }
           ]
@@ -198,7 +335,7 @@ function App() {
 
   if (!username) {
     return (
-      <main className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4">
+      <main className="h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4 font-sans">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
           <div className="flex items-center gap-3 mb-6 justify-center">
             <span className="text-3xl">⚡</span>
@@ -232,57 +369,230 @@ function App() {
 
   return (
     <main className="h-screen w-full bg-slate-950 flex gap-4 p-4 text-slate-100 overflow-hidden font-sans">
-      {/* Sidebar - Online Users */}
-      <aside className="h-full w-1/5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-            <span>👥</span> Room Active Users
-          </h2>
-          <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
-            {users.length} Live
-          </span>
+      {/* Sidebar - Multi-Tab (Files Explorer, Chat, Users) */}
+      <aside className="h-full w-1/4 max-w-xs bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xl">
+        {/* Sidebar Navigation Tabs */}
+        <div className="flex border-b border-slate-800 bg-slate-950/80 p-1 gap-1">
+          <button
+            onClick={() => setActiveSidebarTab("files")}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeSidebarTab === "files"
+                ? "bg-slate-800 text-sky-400 border border-slate-700"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>📁</span> Files ({filesList.length})
+          </button>
+          <button
+            onClick={() => setActiveSidebarTab("chat")}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeSidebarTab === "chat"
+                ? "bg-slate-800 text-amber-400 border border-slate-700"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>💬</span> Chat ({messages.length})
+          </button>
+          <button
+            onClick={() => setActiveSidebarTab("users")}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeSidebarTab === "users"
+                ? "bg-slate-800 text-emerald-400 border border-slate-700"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span>👥</span> Users ({users.length})
+          </button>
         </div>
-        <ul className="p-3 flex-1 overflow-y-auto space-y-2">
-          {users.map((user, index) => (
-            <li
-              key={index}
-              className="p-2.5 bg-slate-950/60 border border-slate-800/80 text-slate-200 rounded-lg flex items-center gap-3 text-sm font-medium"
-            >
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="truncate">{user.username}</span>
-              {user.username === username && (
-                <span className="ml-auto text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded border border-sky-500/30">
-                  You
-                </span>
+
+        {/* Tab 1: File Explorer */}
+        {activeSidebarTab === "files" && (
+          <div className="flex-1 flex flex-col p-3 overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Explorer</span>
+              <button
+                onClick={() => setIsCreatingFile(!isCreatingFile)}
+                className="px-2 py-1 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>+</span> New File
+              </button>
+            </div>
+
+            {/* Create File Form */}
+            {isCreatingFile && (
+              <form onSubmit={handleCreateFile} className="mb-3 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. script.py"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  className="flex-1 px-2.5 py-1 text-xs bg-slate-950 border border-slate-700 rounded text-slate-100 focus:outline-none focus:border-sky-500"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded hover:bg-emerald-500 cursor-pointer"
+                >
+                  Add
+                </button>
+              </form>
+            )}
+
+            {/* Files List */}
+            <ul className="flex-1 overflow-y-auto space-y-1 pr-1">
+              {filesList.map((fileName) => {
+                const isSelected = fileName === activeFileName
+                const fileLang = getLanguageFromFileName(fileName)
+                return (
+                  <li
+                    key={fileName}
+                    onClick={() => handleSelectFile(fileName)}
+                    className={`group p-2 rounded-lg flex items-center justify-between text-xs font-medium cursor-pointer transition-colors border ${
+                      isSelected
+                        ? "bg-sky-950/60 border-sky-800/80 text-sky-200"
+                        : "bg-slate-950/40 border-slate-800/60 text-slate-300 hover:bg-slate-800/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-sm">
+                        {fileLang === "javascript" && "📜"}
+                        {fileLang === "python" && "🐍"}
+                        {fileLang === "cpp" && "⚙️"}
+                        {fileLang === "java" && "☕"}
+                        {fileLang === "typescript" && "📘"}
+                        {fileLang === "html" && "🌐"}
+                        {fileLang === "css" && "🎨"}
+                      </span>
+                      <span className="truncate">{fileName}</span>
+                    </div>
+
+                    <button
+                      onClick={(e) => handleDeleteFile(fileName, e)}
+                      className="opacity-0 group-hover:opacity-100 hover:text-rose-400 text-slate-500 text-xs px-1.5 py-0.5 rounded transition-opacity cursor-pointer"
+                      title="Delete file"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Tab 2: Integrated Room Chat */}
+        {activeSidebarTab === "chat" && (
+          <div className="flex-1 flex flex-col overflow-hidden p-3">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {messages.length === 0 ? (
+                <div className="text-center text-slate-500 text-xs mt-6 italic">
+                  No messages yet. Send a message to start chatting!
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div key={msg.id} className="flex flex-col text-xs">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                      <span className="font-bold text-sky-400">{msg.sender}</span>
+                      <span className="text-[10px] text-slate-500">{msg.time}</span>
+                    </div>
+                    <div className="p-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 break-words">
+                      {msg.text}
+                    </div>
+                  </div>
+                ))
               )}
-            </li>
-          ))}
-        </ul>
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendChatMessage} className="mt-3 flex gap-2">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-800 text-slate-100 text-xs rounded-lg focus:outline-none focus:border-amber-500"
+              />
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Tab 3: Active Users List */}
+        {activeSidebarTab === "users" && (
+          <div className="flex-1 flex flex-col p-3 overflow-hidden">
+            <ul className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {users.map((user, index) => (
+                <li
+                  key={index}
+                  className="p-2.5 bg-slate-950/60 border border-slate-800/80 text-slate-200 rounded-lg flex items-center gap-3 text-sm font-medium"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="truncate">{user.username}</span>
+                  {user.username === username && (
+                    <span className="ml-auto text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded border border-sky-500/30">
+                      You
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Footer Info */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/40 text-xs text-slate-400 flex flex-col gap-1">
           <span className="font-semibold text-slate-300">Room Status:</span>
-          <span className="truncate text-emerald-400">● Connected to Room server</span>
+          <span className="truncate text-emerald-400">● Connected to Yjs Server</span>
         </div>
       </aside>
 
-      {/* Editor & Console Section */}
-      <section className="w-4/5 h-full flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        {/* Action Header / Top Bar */}
-        <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            {/* Language Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Language:</span>
-              <select
-                value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-slate-200 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500 cursor-pointer"
+      {/* Main Section - File Tabs, Editor & Console */}
+      <section className="w-3/4 flex-1 h-full flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+        {/* Top File Tabs Bar */}
+        <div className="flex items-center bg-slate-950 border-b border-slate-800 overflow-x-auto px-2 pt-2 gap-1 scrollbar-none">
+          {filesList.map((fileName) => {
+            const isActive = fileName === activeFileName
+            const fileLang = getLanguageFromFileName(fileName)
+            return (
+              <button
+                key={fileName}
+                onClick={() => handleSelectFile(fileName)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg flex items-center gap-2 border-t border-x transition-colors cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? "bg-slate-900 text-sky-400 border-slate-700 border-b-transparent"
+                    : "bg-slate-950 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-900/50"
+                }`}
               >
-                {LANGUAGE_CONFIG.map((lang) => (
-                  <option key={lang.id} value={lang.id}>
-                    {lang.label}
-                  </option>
-                ))}
-              </select>
+                <span>
+                  {fileLang === "javascript" && "📜"}
+                  {fileLang === "python" && "🐍"}
+                  {fileLang === "cpp" && "⚙️"}
+                  {fileLang === "java" && "☕"}
+                  {fileLang === "typescript" && "📘"}
+                  {fileLang === "html" && "🌐"}
+                  {fileLang === "css" && "🎨"}
+                </span>
+                <span>{fileName}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Action Header Bar */}
+        <div className="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            {/* Detected Language Indicator */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Active Mode:</span>
+              <span className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-sky-400 text-xs font-bold rounded-lg uppercase">
+                {language}
+              </span>
             </div>
 
             {/* Theme Selector */}
@@ -291,7 +601,7 @@ function App() {
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-slate-200 text-sm font-semibold rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500 cursor-pointer"
+                className="bg-slate-900 border border-slate-700 text-slate-200 text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-sky-500 cursor-pointer"
               >
                 <option value="vs-dark">VS Dark</option>
                 <option value="light">VS Light</option>
@@ -301,11 +611,11 @@ function App() {
 
             {/* Font Size Selector */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Font Size:</span>
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Font:</span>
               <select
                 value={fontSize}
                 onChange={(e) => setFontSize(Number(e.target.value))}
-                className="bg-slate-900 border border-slate-700 text-slate-200 text-sm font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-sky-500 cursor-pointer"
+                className="bg-slate-900 border border-slate-700 text-slate-200 text-xs font-semibold rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500 cursor-pointer"
               >
                 <option value={12}>12px</option>
                 <option value={14}>14px</option>
@@ -372,7 +682,7 @@ function App() {
             <div className="p-2 px-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
               <div className="flex items-center gap-3">
                 <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                  <span className="text-emerald-400">❯_</span> Terminal Output
+                  <span className="text-emerald-400">❯_</span> Terminal Output ({activeFileName})
                 </span>
                 {consoleOutput && (
                   <span
