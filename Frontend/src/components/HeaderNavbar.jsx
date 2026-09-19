@@ -1,4 +1,5 @@
 import React from "react"
+import VoiceCall from "./VoiceCall"
 
 export default function HeaderNavbar({
   isSidebarOpen,
@@ -12,7 +13,10 @@ export default function HeaderNavbar({
   activeFileName,
   language,
   handleRunCode,
-  isRunning
+  isRunning,
+  showDiffView,
+  setShowDiffView,
+  setShowSettings
 }) {
   return (
     <header className="h-13 bg-[#161b22] border-b border-[#30363d] px-4 flex items-center justify-between z-20 shrink-0">
@@ -35,22 +39,50 @@ export default function HeaderNavbar({
         </div>
       </div>
 
-      {/* Room Share Badge */}
-      <div className="hidden sm:flex items-center gap-2 bg-[#0d1117] px-3 py-1 rounded-full border border-[#30363d]">
-        <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></span>
-        <span className="text-xs text-[#8b949e]">
-          Room: <strong className="text-[#c9d1d9] font-mono">{roomId}</strong>
-        </span>
-        <button
-          onClick={handleCopyLink}
-          className="ml-1 text-[11px] bg-[#21262d] hover:bg-[#30363d] text-[#58a6ff] px-2 py-0.5 rounded border border-[#30363d] transition-colors cursor-pointer"
-        >
-          {copiedLink ? "Copied! ✓" : "Share Link 🔗"}
-        </button>
+      {/* Center Room Share & Voice Channel */}
+      <div className="hidden sm:flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-[#0d1117] px-3 py-1 rounded-md border border-[#30363d]">
+          <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></span>
+          <span className="text-xs text-[#8b949e]">
+            Room: <strong className="text-[#c9d1d9] font-mono">{roomId}</strong>
+          </span>
+          <button
+            onClick={handleCopyLink}
+            className="ml-1 text-[11px] bg-[#21262d] hover:bg-[#30363d] text-[#58a6ff] px-2 py-0.5 rounded border border-[#30363d] transition-colors cursor-pointer"
+          >
+            {copiedLink ? "Copied! ✓" : "Share 🔗"}
+          </button>
+        </div>
+
+        {/* WebRTC Live Audio Voice Call Component */}
+        <VoiceCall roomId={roomId} username={username} users={users} getUserColor={getUserColor} />
       </div>
 
       {/* Action Controls & Active User Avatars */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Diff Comparison Button */}
+        <button
+          onClick={() => setShowDiffView(!showDiffView)}
+          className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
+            showDiffView
+              ? "bg-[#1f6feb]/20 text-[#58a6ff] border-[#1f6feb]/40"
+              : "bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border-[#30363d]"
+          }`}
+          title="Toggle Code Version Diff View"
+        >
+          <span>⇄</span>
+          <span className="hidden lg:inline">{showDiffView ? "Close Diff" : "Diff View"}</span>
+        </button>
+
+        {/* Settings Modal Button */}
+        <button
+          onClick={() => setShowSettings(true)}
+          className="p-1.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded-md transition-colors cursor-pointer text-xs"
+          title="Editor Settings"
+        >
+          ⚙️
+        </button>
+
         <div className="hidden md:flex items-center -space-x-1.5 overflow-hidden">
           {users.slice(0, 4).map((user, idx) => (
             <div

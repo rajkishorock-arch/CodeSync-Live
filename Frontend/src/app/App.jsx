@@ -13,6 +13,8 @@ import RoomChat from "../components/RoomChat"
 import ActiveUsers from "../components/ActiveUsers"
 import HeaderNavbar from "../components/HeaderNavbar"
 import TerminalDrawer from "../components/TerminalDrawer"
+import DiffViewer from "../components/DiffViewer"
+import EditorSettings from "../components/EditorSettings"
 
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
@@ -86,6 +88,13 @@ function App() {
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState("vs-dark")
   const [fontSize, setFontSize] = useState(14)
+  const [tabSize, setTabSize] = useState(2)
+  const [wordWrap, setWordWrap] = useState("on")
+  const [minimap, setMinimap] = useState(false)
+
+  const [showDiffView, setShowDiffView] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [commits, setCommits] = useState([])
   const [copiedLink, setCopiedLink] = useState(false)
   
   // Mobile responsive sidebar drawer state
@@ -127,6 +136,18 @@ function App() {
   const yFilesMapRef = useRef(yFilesMap)
   useEffect(() => { docRef.current = ydoc }, [ydoc])
   useEffect(() => { yFilesMapRef.current = yFilesMap }, [yFilesMap])
+
+  useEffect(() => {
+    const yGitArray = ydoc.getArray("yGitCommits")
+    const updateCommits = () => {
+      setCommits(yGitArray.toArray())
+    }
+    yGitArray.observe(updateCommits)
+    updateCommits()
+    return () => {
+      yGitArray.unobserve(updateCommits)
+    }
+  }, [ydoc])
 
   // Current file language
   const language = useMemo(() => {
@@ -600,6 +621,9 @@ function App() {
         language={language}
         handleRunCode={handleRunCode}
         isRunning={isRunning}
+        showDiffView={showDiffView}
+        setShowDiffView={setShowDiffView}
+        setShowSettings={setShowSettings}
       />
 
       {/* Main Workspace Layout */}
@@ -823,21 +847,34 @@ function App() {
             </button>
           </div>
 
-          {/* Monaco Editor Container */}
+          {/* Main Monaco Editor Container or Diff Viewer */}
           <div className="flex-1 relative overflow-hidden">
-            <Editor
-              height="100%"
-              language={language}
-              theme={theme}
-              options={{
-                fontSize: fontSize,
-                minimap: { enabled: false },
-                automaticLayout: true,
-                scrollBeyondLastLine: false,
-                padding: { top: 8, bottom: 8 }
-              }}
-              onMount={handleMount}
-            />
+            {showDiffView ? (
+              <DiffViewer
+                activeFileName={activeFileName}
+                currentCode={editorRef.current ? editorRef.current.getValue() : ""}
+                commits={commits}
+                language={language}
+                theme={theme}
+                onClose={() => setShowDiffView(false)}
+              />
+            ) : (
+              <Editor
+                height="100%"
+                language={language}
+                theme={theme}
+                options={{
+                  fontSize: fontSize,
+                  tabSize: tabSize,
+                  wordWrap: wordWrap,
+                  minimap: { enabled: minimap },
+                  automaticLayout: true,
+                  scrollBeyondLastLine: false,
+                  padding: { top: 8, bottom: 8 }
+                }}
+                onMount={handleMount}
+              />
+            )}
           </div>
 
           {/* Terminal Console Output, Web Shell, Stdin & Problems Drawer */}
@@ -865,6 +902,21 @@ function App() {
           />
         </section>
       </div>
+
+      {/* Editor Settings Modal */}
+      {showSettings && (
+        <EditorSettings
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          tabSize={tabSize}
+          setTabSize={setTabSize}
+          wordWrap={wordWrap}
+          setWordWrap={setWordWrap}
+          minimap={minimap}
+          setMinimap={setMinimap}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   )
 }
