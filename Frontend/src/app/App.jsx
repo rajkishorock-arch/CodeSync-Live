@@ -8,6 +8,11 @@ import WebTerminal from "../components/WebTerminal"
 import DiagnosticsPanel from "../components/DiagnosticsPanel"
 import GitPanel from "../components/GitPanel"
 import AiAssistant from "../components/AiAssistant"
+import FileExplorer from "../components/FileExplorer"
+import RoomChat from "../components/RoomChat"
+import ActiveUsers from "../components/ActiveUsers"
+import HeaderNavbar from "../components/HeaderNavbar"
+import TerminalDrawer from "../components/TerminalDrawer"
 
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
@@ -579,70 +584,20 @@ function App() {
   return (
     <div className="h-screen w-full bg-[#0d1117] flex flex-col font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30 relative">
       {/* Header Bar */}
-      <header className="h-12 bg-[#161b22] border-b border-[#30363d] px-3 sm:px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="md:hidden px-2 py-1 bg-[#21262d] border border-[#30363d] rounded text-xs text-[#c9d1d9] cursor-pointer"
-            title="Toggle Sidebar"
-          >
-            {isSidebarOpen ? "✕" : "☰ Sidebar"}
-          </button>
-
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="text-lg">⚡</span>
-            <span className="font-bold text-xs sm:text-sm text-[#f0f6fc] truncate">CodeSync Live</span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-0.5 bg-[#0d1117] rounded-md border border-[#30363d] text-xs text-[#8b949e]">
-            <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></span>
-            <span>Room: Default</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden sm:flex items-center -space-x-1.5 overflow-hidden">
-            {users.map((u, i) => (
-              <div
-                key={i}
-                title={u.username}
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full text-white text-[10px] sm:text-[11px] font-bold flex items-center justify-center border-2 border-[#161b22]"
-                style={{ backgroundColor: getUserColor(u.username) }}
-              >
-                {u.username.substring(0, 2).toUpperCase()}
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={handleCopyInviteLink}
-            className="px-2.5 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded-md border border-[#30363d] transition-colors cursor-pointer flex items-center gap-1"
-          >
-            <span>🔗</span>
-            <span className="hidden sm:inline">{copiedLink ? "Link Copied!" : "Share Link"}</span>
-          </button>
-
-          <button
-            onClick={handleRunCode}
-            disabled={isRunning}
-            className={`px-3 sm:px-4 py-1.5 rounded-md font-bold text-xs text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
-              isRunning ? "bg-[#d29922] opacity-80 cursor-not-allowed" : "bg-[#238636] hover:bg-[#2ea043]"
-            }`}
-          >
-            {isRunning ? (
-              <>
-                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span className="hidden sm:inline">Running...</span>
-              </>
-            ) : (
-              <>
-                <span>▶</span>
-                <span>Run Code</span>
-              </>
-            )}
-          </button>
-        </div>
-      </header>
+      <HeaderNavbar
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        roomId={roomId}
+        handleCopyLink={handleCopyInviteLink}
+        copiedLink={copiedLink}
+        users={users}
+        username={username}
+        getUserColor={getUserColor}
+        activeFileName={activeFileName}
+        language={language}
+        handleRunCode={handleRunCode}
+        isRunning={isRunning}
+      />
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -726,87 +681,22 @@ function App() {
           {/* Sidebar Tab Content */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
             {activeSidebarTab === "files" && (
-              <div className="flex-1 flex flex-col p-3 overflow-hidden">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Explorer</span>
-                  <button
-                    onClick={() => setIsCreatingItem(!isCreatingItem)}
-                    className="px-2 py-0.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded border border-[#30363d] cursor-pointer"
-                  >
-                    + New
-                  </button>
-                </div>
-
-                {isCreatingItem && (
-                  <form onSubmit={handleCreateItem} className="mb-3 flex gap-1">
-                    <input
-                      type="text"
-                      placeholder="src/App.jsx, utils/api.js..."
-                      value={newPathName}
-                      onChange={(e) => setNewPathName(e.target.value)}
-                      className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      className="px-2.5 py-1 bg-[#238636] text-white text-xs font-semibold rounded cursor-pointer"
-                    >
-                      Add
-                    </button>
-                  </form>
-                )}
-
-                <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-                  {/* Root Level Files */}
-                  {fileTree.files.map((filePath) => {
-                    const isSelected = filePath === activeFileName
-                    const fileLang = fileLanguages[filePath] || getLanguageFromFileName(filePath)
-                    return (
-                      <div
-                        key={filePath}
-                        onClick={() => handleSelectFile(filePath)}
-                        className={`group px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium cursor-pointer transition-colors border ${
-                          isSelected
-                            ? "bg-[#1f6feb]/15 border-[#1f6feb]/40 text-[#58a6ff] font-semibold"
-                            : "bg-transparent border-transparent text-[#c9d1d9] hover:bg-[#21262d]"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="text-xs">
-                            {fileLang === "javascript" && "📜"}
-                            {fileLang === "python" && "🐍"}
-                            {fileLang === "cpp" && "⚙️"}
-                            {fileLang === "c" && "⚙️"}
-                            {fileLang === "java" && "☕"}
-                            {fileLang === "typescript" && "📘"}
-                            {fileLang === "html" && "🌐"}
-                            {fileLang === "css" && "🎨"}
-                            {fileLang === "go" && "🐹"}
-                            {fileLang === "rust" && "🦀"}
-                            {fileLang === "php" && "🐘"}
-                            {fileLang === "sql" && "🗄️"}
-                            {fileLang === "json" && "📋"}
-                          </span>
-                          <span className="truncate">{filePath}</span>
-                        </div>
-
-                        <button
-                          onClick={(e) => handleDeleteFile(filePath, e)}
-                          className="opacity-0 group-hover:opacity-100 hover:text-[#f85149] text-[#8b949e] text-xs px-1 cursor-pointer"
-                          title="Delete file"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )
-                  })}
-
-                  {/* Folders & Subdirectories */}
-                  {Object.keys(fileTree.folders).map((folderName) =>
-                    renderFolderNode(folderName, fileTree.folders[folderName])
-                  )}
-                </div>
-              </div>
+              <FileExplorer
+                fileTree={fileTree}
+                filesList={filesList}
+                activeFileName={activeFileName}
+                fileLanguages={fileLanguages}
+                getLanguageFromFileName={getLanguageFromFileName}
+                handleSelectFile={handleSelectFile}
+                handleDeleteFile={handleDeleteFile}
+                isCreatingItem={isCreatingItem}
+                setIsCreatingItem={setIsCreatingItem}
+                newPathName={newPathName}
+                setNewPathName={setNewPathName}
+                handleCreateItem={handleCreateItem}
+                expandedFolders={expandedFolders}
+                toggleFolder={toggleFolder}
+              />
             )}
 
             {activeSidebarTab === "git" && (
@@ -830,74 +720,17 @@ function App() {
             )}
 
             {activeSidebarTab === "chat" && (
-              <div className="flex-1 flex flex-col p-3 overflow-hidden">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Room Chat</span>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                  {messages.length === 0 ? (
-                    <div className="text-center text-[#8b949e] text-xs mt-6 italic">
-                      No messages. Start typing below...
-                    </div>
-                  ) : (
-                    messages.map((msg) => (
-                      <div key={msg.id} className="flex flex-col text-xs bg-[#0d1117] p-2 rounded border border-[#30363d]">
-                        <div className="flex items-center justify-between text-[10px] text-[#8b949e] mb-1">
-                          <span className="font-bold text-[#58a6ff]">{msg.sender}</span>
-                          <span>{msg.time}</span>
-                        </div>
-                        <div className="text-[#c9d1d9] break-words">{msg.text}</div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <form onSubmit={handleSendChatMessage} className="mt-2.5 flex gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="Message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] text-xs rounded-md focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-[#d29922] hover:bg-[#b08018] text-white font-bold text-xs rounded-md cursor-pointer"
-                  >
-                    Send
-                  </button>
-                </form>
-              </div>
+              <RoomChat
+                messages={messages}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                handleSendChatMessage={handleSendChatMessage}
+                chatEndRef={chatEndRef}
+              />
             )}
 
             {activeSidebarTab === "users" && (
-              <div className="flex-1 flex flex-col p-3 overflow-hidden">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Active Users ({users.length})</span>
-                </div>
-                <ul className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-                  {users.map((user, index) => (
-                    <li
-                      key={index}
-                      className="p-2 bg-[#0d1117] border border-[#30363d] rounded-md flex items-center gap-2 text-xs text-[#c9d1d9]"
-                    >
-                      <span
-                        className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                        style={{ backgroundColor: getUserColor(user.username) }}
-                      >
-                        {user.username.substring(0, 2).toUpperCase()}
-                      </span>
-                      <span className="truncate font-medium">{user.username}</span>
-                      {user.username === username && (
-                        <span className="ml-auto text-[9px] bg-[#1f6feb]/20 text-[#58a6ff] px-1 py-0.2 rounded border border-[#1f6feb]/40">
-                          YOU
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ActiveUsers users={users} username={username} getUserColor={getUserColor} />
             )}
 
             <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
@@ -1005,150 +838,28 @@ function App() {
           </div>
 
           {/* Terminal Console Output, Web Shell, Stdin & Problems Drawer */}
-          {showConsole && (
-            <div className="h-60 sm:h-64 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
-              <div className="px-3 py-1 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e] overflow-x-auto gap-2 scrollbar-none">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setTerminalTab("output")}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                      terminalTab === "output"
-                        ? "bg-[#0d1117] text-[#58a6ff] border border-[#30363d]"
-                        : "hover:text-[#c9d1d9] text-[#8b949e]"
-                    }`}
-                  >
-                    🖥️ Console Output
-                  </button>
-
-                  <button
-                    onClick={() => setTerminalTab("terminal")}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                      terminalTab === "terminal"
-                        ? "bg-[#0d1117] text-[#3fb950] border border-[#30363d]"
-                        : "hover:text-[#c9d1d9] text-[#8b949e]"
-                    }`}
-                  >
-                    ❯_ Web Shell
-                  </button>
-
-                  <button
-                    onClick={() => setTerminalTab("stdin")}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors ${
-                      terminalTab === "stdin"
-                        ? "bg-[#0d1117] text-[#d29922] border border-[#30363d]"
-                        : "hover:text-[#c9d1d9] text-[#8b949e]"
-                    }`}
-                  >
-                    📥 Program Input (stdin)
-                  </button>
-
-                  <button
-                    onClick={() => setTerminalTab("problems")}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 ${
-                      terminalTab === "problems"
-                        ? "bg-[#0d1117] text-[#ff7b72] border border-[#30363d]"
-                        : "hover:text-[#c9d1d9] text-[#8b949e]"
-                    }`}
-                  >
-                    <span>⚠️ Problems</span>
-                    <span
-                      className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
-                        markers.filter((m) => m.severity === 8).length > 0
-                          ? "bg-[#f85149] text-white"
-                          : "bg-[#30363d] text-[#8b949e]"
-                      }`}
-                    >
-                      {markers.length}
-                    </span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {consoleOutput && (
-                    <button
-                      onClick={() => setConsoleOutput(null)}
-                      className="hover:text-[#f0f6fc] text-[#8b949e] cursor-pointer px-2 py-0.5 rounded bg-[#21262d] text-[11px]"
-                    >
-                      Clear Output
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-1 flex overflow-hidden">
-                {terminalTab === "output" && (
-                  <div className="flex-1 p-3 overflow-y-auto text-[#c9d1d9] selection:bg-[#1f6feb]/30">
-                    {isRunning && (
-                      <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
-                        <span className="w-3 h-3 border-2 border-[#d29922] border-t-transparent rounded-full animate-spin"></span>
-                        Executing code...
-                      </div>
-                    )}
-
-                    {(language === "html" || language === "css") && htmlPreview && !isRunning && (
-                      <div className="w-full h-full border border-[#30363d] bg-white rounded overflow-hidden">
-                        <iframe title="HTML Preview" srcDoc={htmlPreview} className="w-full h-full border-0" />
-                      </div>
-                    )}
-
-                    {!isRunning && consoleOutput && (
-                      <>
-                        {consoleOutput.stdout && (
-                          <pre className="whitespace-pre-wrap font-mono leading-relaxed text-[#f0f6fc]">
-                            {consoleOutput.stdout}
-                          </pre>
-                        )}
-                        {consoleOutput.stderr && (
-                          <div className="p-2 rounded bg-[#f85149]/15 border border-[#f85149]/30 text-[#ff7b72] whitespace-pre-wrap font-mono">
-                            <span className="font-bold text-[#f85149] block mb-1">Execution Error:</span>
-                            {consoleOutput.stderr}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {!isRunning && !consoleOutput && language !== "html" && language !== "css" && (
-                      <div className="text-[#8b949e] italic font-sans text-xs">
-                        Click green <strong className="text-[#3fb950] font-semibold">"▶ Run Code"</strong> button to execute code...
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {terminalTab === "terminal" && (
-                  <WebTerminal
-                    activeFileName={activeFileName}
-                    filesList={filesList}
-                    fileLanguages={fileLanguages}
-                    handleRunCode={handleRunCode}
-                    username={username}
-                    roomId={roomId}
-                    users={users}
-                    yFilesMapRef={yFilesMapRef}
-                  />
-                )}
-
-                {terminalTab === "stdin" && (
-                  <div className="flex-1 bg-[#0d1117] p-3 flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
-                      <span>Program Input Stream (stdin)</span>
-                      <span className="text-[10px] text-[#58a6ff]">Passed to scanf / cin / input()</span>
-                    </label>
-                    <textarea
-                      value={stdinInput}
-                      onChange={(e) => setStdinInput(e.target.value)}
-                      placeholder="Enter inputs here line by line (e.g. 5&#10;10 20 30)..."
-                      className="flex-1 w-full bg-[#161b22] border border-[#30363d] rounded p-2.5 text-xs text-[#f0f6fc] font-mono focus:outline-none focus:border-[#58a6ff] resize-none"
-                    />
-                  </div>
-                )}
-
-                {terminalTab === "problems" && (
-                  <DiagnosticsPanel markers={markers} activeFileName={activeFileName} editorRef={editorRef} />
-                )}
-              </div>
-            </div>
-          )}
+          <TerminalDrawer
+            showConsole={showConsole}
+            terminalTab={terminalTab}
+            setTerminalTab={setTerminalTab}
+            markers={markers}
+            consoleOutput={consoleOutput}
+            setConsoleOutput={setConsoleOutput}
+            isRunning={isRunning}
+            language={language}
+            htmlPreview={htmlPreview}
+            activeFileName={activeFileName}
+            filesList={filesList}
+            fileLanguages={fileLanguages}
+            handleRunCode={handleRunCode}
+            username={username}
+            roomId={roomId}
+            users={users}
+            yFilesMapRef={yFilesMapRef}
+            stdinInput={stdinInput}
+            setStdinInput={setStdinInput}
+            editorRef={editorRef}
+          />
         </section>
       </div>
     </div>
