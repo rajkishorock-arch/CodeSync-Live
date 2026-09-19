@@ -8,7 +8,7 @@ import { WebsocketProvider } from "y-websocket"
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
   { id: "python", label: "Python 3", judge0Id: 71, ext: ".py" },
-  { id: "cpp", label: "C++", judge0Id: 54, ext: ".cpp" },
+  { id: "cpp", label: "C / C++", judge0Id: 54, ext: ".cpp" },
   { id: "java", label: "Java", judge0Id: 62, ext: ".java" },
   { id: "typescript", label: "TypeScript", judge0Id: 74, ext: ".ts" },
   { id: "html", label: "HTML5", judge0Id: null, ext: ".html" },
@@ -16,22 +16,24 @@ const LANGUAGE_CONFIG = [
 ]
 
 const STARTER_SNIPPETS = {
-  javascript: `// JavaScript Live Demo\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync Developer");\n`,
-  python: `# Python 3 Live Demo\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync Developer")\n`,
-  cpp: `// C++ Live Demo\n#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, CodeSync Developer!" << endl;\n    return 0;\n}\n`,
-  java: `// Java Live Demo\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync Developer!");\n    }\n}\n`,
-  typescript: `// TypeScript Live Demo\nconst greeting: string = "Hello, CodeSync Developer!";\nconsole.log(greeting);\n`,
-  html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: system-ui, sans-serif; background: #1e1e1e; color: #cccccc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }\n    h1 { color: #569cd6; font-weight: 500; }\n  </style>\n</head>\n<body>\n  <div>\n    <h1>CodeSync Live HTML Preview</h1>\n    <p>Edit HTML and click Run Code to update.</p>\n  </div>\n</body>\n</html>\n`,
-  css: `/* CSS Live Demo */\nbody {\n  background-color: #1e1e1e;\n  color: #569cd6;\n  font-family: monospace;\n}\n`
+  javascript: `// JavaScript Starter Code\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync User");\n`,
+  python: `# Python 3 Starter Code\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync User")\n`,
+  cpp: `// C/C++ Starter Code\n#include <stdio.h>\n\nint main() {\n    printf("Hello, CodeSync User!\\n");\n    return 0;\n}\n`,
+  java: `// Java Starter Code\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync User!");\n    }\n}\n`,
+  typescript: `// TypeScript Starter Code\nconst greeting: string = "Hello, CodeSync User!";\nconsole.log(greeting);\n`,
+  html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 2rem; text-align: center; }\n    h1 { color: #38bdf8; }\n  </style>\n</head>\n<body>\n  <h1>Hello from CodeSync Live!</h1>\n  <p>Edit HTML and click Run Code to view live output.</p>\n</body>\n</html>\n`,
+  css: `/* CSS Starter Code */\nbody {\n  background-color: #0f172a;\n  color: #38bdf8;\n}\n`
 }
 
 function getLanguageFromFileName(filename) {
-  if (filename.endsWith(".py")) return "python"
-  if (filename.endsWith(".cpp") || filename.endsWith(".cc")) return "cpp"
-  if (filename.endsWith(".java")) return "java"
-  if (filename.endsWith(".ts")) return "typescript"
-  if (filename.endsWith(".html") || filename.endsWith(".htm")) return "html"
-  if (filename.endsWith(".css")) return "css"
+  if (!filename) return "javascript"
+  const lower = filename.toLowerCase()
+  if (lower.endsWith(".py")) return "python"
+  if (lower.endsWith(".c") || lower.endsWith(".cpp") || lower.endsWith(".cc")) return "cpp"
+  if (lower.endsWith(".java")) return "java"
+  if (lower.endsWith(".ts")) return "typescript"
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html"
+  if (lower.endsWith(".css")) return "css"
   return "javascript"
 }
 
@@ -46,6 +48,7 @@ function App() {
   const [users, setUsers] = useState([])
   const [theme, setTheme] = useState("vs-dark")
   const [fontSize, setFontSize] = useState(14)
+  const [copiedLink, setCopiedLink] = useState(false)
   
   // Sidebar Tab: "files" | "chat" | "users"
   const [activeSidebarTab, setActiveSidebarTab] = useState("files")
@@ -70,6 +73,7 @@ function App() {
   const yFilesMap = useMemo(() => ydoc.getMap("files_meta"), [ydoc])
   const yChatArray = useMemo(() => ydoc.getArray("chat_messages"), [ydoc])
 
+  // Current file language
   const language = useMemo(() => getLanguageFromFileName(activeFileName), [activeFileName])
 
   const bindEditorToFile = (fileName, editor = editorRef.current) => {
@@ -125,11 +129,11 @@ function App() {
   const handleDeleteFile = (fileName, e) => {
     e.stopPropagation()
     if (filesList.length <= 1) {
-      alert("Cannot delete the last file.")
+      alert("Cannot delete the last remaining file.")
       return
     }
 
-    if (confirm(`Delete file "${fileName}"?`)) {
+    if (confirm(`Are you sure you want to delete "${fileName}"?`)) {
       yFilesMap.delete(fileName)
       const remainingFiles = filesList.filter(f => f !== fileName)
       if (activeFileName === fileName) {
@@ -161,6 +165,12 @@ function App() {
 
     yChatArray.push([msgObj])
     setChatInput("")
+  }
+
+  const handleCopyInviteLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
   }
 
   useEffect(() => {
@@ -227,13 +237,13 @@ function App() {
     }
   }, [username, ydoc])
 
-  // Clean Execution Runner
+  // Multi-Engine Code Execution
   const handleRunCode = async () => {
     const activeFileYText = ydoc.getText(`file_${activeFileName}`)
     const codeToRun = activeFileYText.toString()
 
     if (!codeToRun.trim()) {
-      setConsoleOutput({ stdout: "", stderr: "No code to execute.", time: 0, status: "Empty", isError: true })
+      setConsoleOutput({ stdout: "", stderr: "Code is empty. Please enter code to run.", time: "0s", status: "Empty", isError: true })
       setShowConsole(true)
       return
     }
@@ -245,13 +255,13 @@ function App() {
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
-        const htmlCode = ydoc.getText("file_index.html").toString() || "<h1>Live Preview</h1>"
+        const htmlCode = ydoc.getText("file_index.html").toString() || "<h1>Live HTML/CSS Preview</h1>"
         combinedHTML = `<style>${codeToRun}</style>${htmlCode}`
       }
 
       setHtmlPreview(combinedHTML)
       setConsoleOutput({
-        stdout: `Preview updated.`,
+        stdout: `HTML/CSS Live Preview rendered below.`,
         stderr: "",
         time: "0.00s",
         status: "Rendered",
@@ -282,9 +292,9 @@ function App() {
         const duration = ((performance.now() - startTime) / 1000).toFixed(3)
 
         setConsoleOutput({
-          stdout: logs.join("\n") || "(Done - 0 output logs)",
+          stdout: logs.join("\n") || "(Code executed cleanly with 0 output logs)",
           stderr: "",
-          status: "Completed",
+          status: "Success",
           time: `${duration}s`,
           isError: false
         })
@@ -292,7 +302,7 @@ function App() {
         setConsoleOutput({
           stdout: logs.join("\n"),
           stderr: err.toString(),
-          status: "Error",
+          status: "Runtime Error",
           time: "0.00s",
           isError: true
         })
@@ -302,7 +312,7 @@ function App() {
       return
     }
 
-    // Mode 3: Judge0 API for Python, C++, Java
+    // Mode 3: Judge0 API for Python, C/C++, Java
     const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
     try {
       const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
@@ -332,8 +342,8 @@ function App() {
     } catch (err) {
       setConsoleOutput({
         stdout: "",
-        stderr: `Server error: ${err.message}`,
-        status: "Error",
+        stderr: `Execution server error: ${err.message}`,
+        status: "Network Error",
         time: "0.00s",
         isError: true
       })
@@ -344,19 +354,22 @@ function App() {
 
   if (!username) {
     return (
-      <main className="h-screen w-full bg-[#181818] flex items-center justify-center p-4 font-sans text-neutral-200">
-        <div className="bg-[#252526] border border-[#333333] rounded-lg p-6 max-w-sm w-full shadow-lg">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <h1 className="text-lg font-semibold text-white tracking-tight">CodeSync IDE</h1>
+      <main className="min-h-screen w-full bg-slate-950 flex items-center justify-center p-4 font-sans text-slate-100">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-md w-full shadow-2xl">
+          <div className="flex items-center gap-3 mb-6 justify-center">
+            <span className="text-3xl">⚡</span>
+            <h1 className="text-2xl font-bold text-white tracking-tight">CodeSync Live</h1>
           </div>
+          <p className="text-slate-400 text-sm mb-6 text-center">
+            Real-time collaborative code editor & execution environment.
+          </p>
           <form onSubmit={handleJoin} className="flex flex-col gap-4">
             <div>
-              <label className="block text-neutral-400 text-xs font-medium mb-1.5 uppercase tracking-wider">Username</label>
+              <label className="block text-slate-300 text-sm font-medium mb-1.5">Enter Your Username</label>
               <input
                 type="text"
-                placeholder="Enter username"
-                className="w-full px-3 py-2 text-sm rounded bg-[#1e1e1e] text-neutral-100 border border-[#3c3c3c] focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="e.g. Raj"
+                className="w-full px-4 py-3 rounded-lg bg-slate-950 text-slate-100 border border-slate-700 focus:outline-none focus:border-sky-500 text-sm transition-colors"
                 name="username"
                 required
                 autoFocus
@@ -364,9 +377,9 @@ function App() {
             </div>
             <button
               type="submit"
-              className="w-full py-2 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white font-medium text-sm transition-colors cursor-pointer"
+              className="w-full py-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm transition-all cursor-pointer shadow-lg shadow-sky-600/20"
             >
-              Join Session
+              Join Coding Room
             </button>
           </form>
         </div>
@@ -375,302 +388,403 @@ function App() {
   }
 
   return (
-    <main className="h-screen w-full bg-[#181818] flex text-neutral-300 font-sans text-xs overflow-hidden selection:bg-[#264f78]">
-      {/* VS Code Minimal Sidebar */}
-      <aside className="h-full w-64 bg-[#252526] border-r border-[#333333] flex flex-col shrink-0">
-        {/* Navigation Header Tabs */}
-        <div className="flex border-b border-[#333333] bg-[#2d2d2d] text-neutral-400">
-          <button
-            onClick={() => setActiveSidebarTab("files")}
-            className={`flex-1 py-2 font-medium text-center transition-colors cursor-pointer border-b-2 ${
-              activeSidebarTab === "files"
-                ? "text-white border-blue-500 bg-[#252526]"
-                : "border-transparent hover:text-neutral-200"
-            }`}
-          >
-            Explorer
-          </button>
-          <button
-            onClick={() => setActiveSidebarTab("chat")}
-            className={`flex-1 py-2 font-medium text-center transition-colors cursor-pointer border-b-2 ${
-              activeSidebarTab === "chat"
-                ? "text-white border-blue-500 bg-[#252526]"
-                : "border-transparent hover:text-neutral-200"
-            }`}
-          >
-            Chat ({messages.length})
-          </button>
-          <button
-            onClick={() => setActiveSidebarTab("users")}
-            className={`flex-1 py-2 font-medium text-center transition-colors cursor-pointer border-b-2 ${
-              activeSidebarTab === "users"
-                ? "text-white border-blue-500 bg-[#252526]"
-                : "border-transparent hover:text-neutral-200"
-            }`}
-          >
-            Users ({users.length})
-          </button>
-        </div>
-
-        {/* Tab 1: File Explorer */}
-        {activeSidebarTab === "files" && (
-          <div className="flex-1 flex flex-col p-2 overflow-hidden">
-            <div className="flex items-center justify-between px-2 py-1.5 mb-1 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-              <span>Files</span>
-              <button
-                onClick={() => setIsCreatingFile(!isCreatingFile)}
-                className="hover:text-white px-1 py-0.5 rounded cursor-pointer transition-colors"
-                title="New File"
-              >
-                + New
-              </button>
-            </div>
-
-            {isCreatingFile && (
-              <form onSubmit={handleCreateFile} className="mb-2 px-1 flex gap-1">
-                <input
-                  type="text"
-                  placeholder="name.js"
-                  value={newFileName}
-                  onChange={(e) => setNewFileName(e.target.value)}
-                  className="w-full px-2 py-1 bg-[#1e1e1e] border border-[#3c3c3c] text-white text-xs rounded focus:outline-none focus:border-blue-500"
-                  autoFocus
-                />
-              </form>
-            )}
-
-            <ul className="flex-1 overflow-y-auto space-y-0.5">
-              {filesList.map((fileName) => {
-                const isSelected = fileName === activeFileName
-                return (
-                  <li
-                    key={fileName}
-                    onClick={() => handleSelectFile(fileName)}
-                    className={`group px-2.5 py-1.5 rounded flex items-center justify-between cursor-pointer transition-colors ${
-                      isSelected
-                        ? "bg-[#37373d] text-white font-medium"
-                        : "hover:bg-[#2a2d2e] text-neutral-400 hover:text-neutral-200"
-                    }`}
-                  >
-                    <span className="truncate">{fileName}</span>
-                    <button
-                      onClick={(e) => handleDeleteFile(fileName, e)}
-                      className="opacity-0 group-hover:opacity-100 hover:text-red-400 text-neutral-500 px-1 cursor-pointer"
-                    >
-                      ×
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
-
-        {/* Tab 2: Chat */}
-        {activeSidebarTab === "chat" && (
-          <div className="flex-1 flex flex-col p-2 overflow-hidden">
-            <div className="flex-1 overflow-y-auto space-y-2 p-1">
-              {messages.length === 0 ? (
-                <div className="text-center text-neutral-500 italic mt-4">No messages</div>
-              ) : (
-                messages.map((msg) => (
-                  <div key={msg.id} className="bg-[#1e1e1e] p-2 rounded border border-[#333333]">
-                    <div className="flex justify-between text-[10px] text-neutral-400 mb-1">
-                      <span className="font-semibold text-blue-400">{msg.sender}</span>
-                      <span>{msg.time}</span>
-                    </div>
-                    <div className="text-neutral-200 break-words">{msg.text}</div>
-                  </div>
-                ))
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <form onSubmit={handleSendChatMessage} className="mt-2 flex gap-1">
-              <input
-                type="text"
-                placeholder="Message..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 px-2 py-1.5 bg-[#1e1e1e] border border-[#3c3c3c] text-white rounded focus:outline-none focus:border-blue-500"
-              />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white rounded font-medium cursor-pointer"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Tab 3: Users */}
-        {activeSidebarTab === "users" && (
-          <div className="flex-1 flex flex-col p-2 overflow-hidden">
-            <ul className="flex-1 overflow-y-auto space-y-1">
-              {users.map((user, index) => (
-                <li
-                  key={index}
-                  className="px-2.5 py-1.5 bg-[#1e1e1e] rounded flex items-center gap-2 text-neutral-300"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="truncate">{user.username}</span>
-                  {user.username === username && (
-                    <span className="ml-auto text-[10px] text-neutral-500 uppercase">You</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Status Bar */}
-        <div className="px-3 py-1.5 border-t border-[#333333] bg-[#007acc] text-white text-[11px] flex justify-between items-center">
-          <span>CodeSync Session</span>
-          <span className="opacity-80">Connected</span>
-        </div>
-      </aside>
-
-      {/* Main Workspace */}
-      <section className="flex-1 h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
-        {/* VS Code Editor Tabs */}
-        <div className="flex items-center bg-[#252526] border-b border-[#333333] overflow-x-auto">
-          {filesList.map((fileName) => {
-            const isActive = fileName === activeFileName
-            return (
-              <button
-                key={fileName}
-                onClick={() => handleSelectFile(fileName)}
-                className={`px-3 py-2 text-xs border-r border-[#333333] flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? "bg-[#1e1e1e] text-white border-t-2 border-t-blue-500"
-                    : "bg-[#2d2d2d] text-neutral-400 hover:bg-[#2a2d2e] hover:text-neutral-200"
-                }`}
-              >
-                <span>{fileName}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Action Toolbar */}
-        <div className="px-3 py-1.5 bg-[#1e1e1e] border-b border-[#333333] flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <span className="text-neutral-500 uppercase text-[10px]">Lang:</span>
-              <span className="text-neutral-200 font-medium uppercase">{language}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-neutral-500 uppercase text-[10px]">Theme:</span>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                className="bg-[#252526] border border-[#3c3c3c] text-neutral-300 rounded px-2 py-0.5 focus:outline-none"
-              >
-                <option value="vs-dark">VS Dark</option>
-                <option value="light">Light</option>
-                <option value="hc-black">High Contrast</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-neutral-500 uppercase text-[10px]">Font:</span>
-              <select
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="bg-[#252526] border border-[#3c3c3c] text-neutral-300 rounded px-1.5 py-0.5 focus:outline-none"
-              >
-                <option value={12}>12px</option>
-                <option value={14}>14px</option>
-                <option value={16}>16px</option>
-                <option value={18}>18px</option>
-              </select>
-            </div>
-          </div>
-
+    <div className="h-screen w-full bg-slate-950 flex flex-col font-sans text-slate-200 overflow-hidden">
+      {/* Top Application Header Bar */}
+      <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowConsole(!showConsole)}
-              className="px-2.5 py-1 bg-[#252526] hover:bg-[#2e2e2e] text-neutral-300 border border-[#3c3c3c] rounded cursor-pointer transition-colors"
-            >
-              {showConsole ? "Hide Terminal" : "Show Terminal"}
-            </button>
+            <span className="text-xl">⚡</span>
+            <span className="font-bold text-base text-white tracking-tight">CodeSync Live</span>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-950 rounded-full border border-slate-800 text-xs text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Room: Default</span>
+          </div>
+        </div>
 
+        {/* Center / Right Action Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCopyInviteLink}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <span>🔗</span>
+            <span>{copiedLink ? "Link Copied!" : "Share Room Link"}</span>
+          </button>
+
+          <button
+            onClick={handleRunCode}
+            disabled={isRunning}
+            className={`px-5 py-1.5 rounded-lg font-bold text-xs text-white transition-all cursor-pointer flex items-center gap-2 shadow-md ${
+              isRunning ? "bg-amber-600 opacity-80 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/30"
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Executing...</span>
+              </>
+            ) : (
+              <>
+                <span>▶</span>
+                <span>Run Code</span>
+              </>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Workspace */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar - Files, Chat, Users */}
+        <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+          {/* Sidebar Tabs Header */}
+          <div className="flex border-b border-slate-800 bg-slate-950/60 p-1 gap-1 text-xs">
             <button
-              onClick={handleRunCode}
-              disabled={isRunning}
-              className={`px-4 py-1 rounded font-medium text-white transition-colors cursor-pointer ${
-                isRunning ? "bg-amber-600 opacity-70" : "bg-[#0e639c] hover:bg-[#1177bb]"
+              onClick={() => setActiveSidebarTab("files")}
+              className={`flex-1 py-2 font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeSidebarTab === "files"
+                  ? "bg-slate-800 text-sky-400 border border-slate-700 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              {isRunning ? "Executing..." : "▶ Run Code"}
+              <span>📁 Files</span>
+            </button>
+            <button
+              onClick={() => setActiveSidebarTab("chat")}
+              className={`flex-1 py-2 font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeSidebarTab === "chat"
+                  ? "bg-slate-800 text-amber-400 border border-slate-700 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>💬 Chat ({messages.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveSidebarTab("users")}
+              className={`flex-1 py-2 font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeSidebarTab === "users"
+                  ? "bg-slate-800 text-emerald-400 border border-slate-700 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>👥 Users ({users.length})</span>
             </button>
           </div>
-        </div>
 
-        {/* Editor Area */}
-        <div className="flex-1 relative overflow-hidden">
-          <Editor
-            height="100%"
-            language={language}
-            theme={theme}
-            options={{
-              fontSize: fontSize,
-              minimap: { enabled: true },
-              automaticLayout: true,
-              scrollBeyondLastLine: false,
-              padding: { top: 8, bottom: 8 }
-            }}
-            onMount={handleMount}
-          />
-        </div>
+          {/* Sidebar Tab 1: File Explorer */}
+          {activeSidebarTab === "files" && (
+            <div className="flex-1 flex flex-col p-3 overflow-hidden">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Files</span>
+                <button
+                  onClick={() => setIsCreatingFile(!isCreatingFile)}
+                  className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>+</span> New File
+                </button>
+              </div>
 
-        {/* Terminal Console Output */}
-        {showConsole && (
-          <div className="h-44 bg-[#181818] border-t border-[#333333] flex flex-col font-mono text-xs">
-            <div className="px-3 py-1.5 bg-[#252526] border-b border-[#333333] flex justify-between items-center text-neutral-400">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-neutral-200">Terminal Output</span>
-                {consoleOutput && (
-                  <span className={`px-1.5 py-0.2 rounded text-[10px] ${consoleOutput.isError ? "bg-red-900/40 text-red-400" : "bg-emerald-900/40 text-emerald-400"}`}>
-                    {consoleOutput.status}
+              {isCreatingFile && (
+                <form onSubmit={handleCreateFile} className="mb-3 flex gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="filename.js"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs bg-slate-950 border border-slate-700 rounded text-slate-100 focus:outline-none focus:border-sky-500"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </form>
+              )}
+
+              <ul className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                {filesList.map((fileName) => {
+                  const isSelected = fileName === activeFileName
+                  const fileLang = getLanguageFromFileName(fileName)
+                  return (
+                    <li
+                      key={fileName}
+                      onClick={() => handleSelectFile(fileName)}
+                      className={`group p-2.5 rounded-lg flex items-center justify-between text-xs font-medium cursor-pointer transition-all border ${
+                        isSelected
+                          ? "bg-sky-950/70 border-sky-600/80 text-sky-200 shadow-sm"
+                          : "bg-slate-950/40 border-slate-800/80 text-slate-300 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-sm">
+                          {fileLang === "javascript" && "📜"}
+                          {fileLang === "python" && "🐍"}
+                          {fileLang === "cpp" && "⚙️"}
+                          {fileLang === "java" && "☕"}
+                          {fileLang === "typescript" && "📘"}
+                          {fileLang === "html" && "🌐"}
+                          {fileLang === "css" && "🎨"}
+                        </span>
+                        <span className="truncate">{fileName}</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => handleDeleteFile(fileName, e)}
+                        className="opacity-0 group-hover:opacity-100 hover:text-rose-400 text-slate-500 text-xs px-1.5 py-0.5 rounded cursor-pointer transition-opacity"
+                        title="Delete file"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* Sidebar Tab 2: Integrated Chat */}
+          {activeSidebarTab === "chat" && (
+            <div className="flex-1 flex flex-col p-3 overflow-hidden">
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {messages.length === 0 ? (
+                  <div className="text-center text-slate-500 text-xs mt-8 italic">
+                    No messages yet. Start chatting below!
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <div key={msg.id} className="flex flex-col text-xs">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                        <span className="font-bold text-sky-400">{msg.sender}</span>
+                        <span className="text-[10px] text-slate-500">{msg.time}</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 break-words">
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              <form onSubmit={handleSendChatMessage} className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 text-xs rounded-lg focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Sidebar Tab 3: Active Room Users */}
+          {activeSidebarTab === "users" && (
+            <div className="flex-1 flex flex-col p-3 overflow-hidden">
+              <ul className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {users.map((user, index) => (
+                  <li
+                    key={index}
+                    className="p-2.5 bg-slate-950/60 border border-slate-800/80 text-slate-200 rounded-lg flex items-center gap-3 text-xs font-medium"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="truncate">{user.username}</span>
+                    {user.username === username && (
+                      <span className="ml-auto text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded border border-sky-500/30">
+                        YOU
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-slate-800 bg-slate-950/80 text-xs text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Live Connected
+            </span>
+            <span className="text-[11px] text-slate-500">v1.0.0</span>
+          </div>
+        </aside>
+
+        {/* Main Editor Section */}
+        <section className="flex-1 h-full flex flex-col bg-slate-950 overflow-hidden">
+          {/* File Tabs Navigation Bar */}
+          <div className="flex items-center bg-slate-900 border-b border-slate-800 overflow-x-auto px-2 pt-2 gap-1.5">
+            {filesList.map((fileName) => {
+              const isActive = fileName === activeFileName
+              const fileLang = getLanguageFromFileName(fileName)
+              return (
+                <button
+                  key={fileName}
+                  onClick={() => handleSelectFile(fileName)}
+                  className={`px-3.5 py-2 text-xs font-semibold rounded-t-lg flex items-center gap-2 border-t border-x transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? "bg-slate-950 text-sky-400 border-slate-700 border-b-slate-950 font-bold"
+                      : "bg-slate-900 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-850"
+                  }`}
+                >
+                  <span>
+                    {fileLang === "javascript" && "📜"}
+                    {fileLang === "python" && "🐍"}
+                    {fileLang === "cpp" && "⚙️"}
+                    {fileLang === "java" && "☕"}
+                    {fileLang === "typescript" && "📘"}
+                    {fileLang === "html" && "🌐"}
+                    {fileLang === "css" && "🎨"}
                   </span>
+                  <span>{fileName}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Sub-Header Toolbar (Detected Language & Editor Settings) */}
+          <div className="px-4 py-2 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3 text-xs">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px]">Language:</span>
+                <span className="px-2.5 py-1 bg-slate-950 border border-slate-700 text-sky-400 font-bold rounded uppercase text-xs">
+                  {language}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px]">Theme:</span>
+                <select
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="bg-slate-950 border border-slate-700 text-slate-200 rounded px-2.5 py-1 focus:outline-none focus:border-sky-500 cursor-pointer"
+                >
+                  <option value="vs-dark">VS Dark</option>
+                  <option value="light">VS Light</option>
+                  <option value="hc-black">High Contrast</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px]">Font Size:</span>
+                <select
+                  value={fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
+                  className="bg-slate-950 border border-slate-700 text-slate-200 rounded px-2 py-1 focus:outline-none focus:border-sky-500 cursor-pointer"
+                >
+                  <option value={12}>12px</option>
+                  <option value={14}>14px</option>
+                  <option value={16}>16px</option>
+                  <option value={18}>18px</option>
+                  <option value={20}>20px</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowConsole(!showConsole)}
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition-colors cursor-pointer text-xs font-medium"
+            >
+              {showConsole ? "Hide Output Terminal 🔽" : "Show Output Terminal 🔼"}
+            </button>
+          </div>
+
+          {/* Monaco Editor Container */}
+          <div className="flex-1 relative overflow-hidden">
+            <Editor
+              height="100%"
+              language={language}
+              theme={theme}
+              options={{
+                fontSize: fontSize,
+                minimap: { enabled: true },
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                padding: { top: 10, bottom: 10 }
+              }}
+              onMount={handleMount}
+            />
+          </div>
+
+          {/* Execution Output Console Drawer */}
+          {showConsole && (
+            <div className="h-48 bg-slate-950 border-t border-slate-800 flex flex-col font-mono text-xs">
+              {/* Terminal Header */}
+              <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex justify-between items-center text-slate-400">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                    <span className="text-emerald-400 font-bold">❯_</span> Terminal Output ({activeFileName})
+                  </span>
+                  {consoleOutput && (
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                        consoleOutput.isError
+                          ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                          : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      }`}
+                    >
+                      {consoleOutput.status} {consoleOutput.time && `(${consoleOutput.time})`}
+                    </span>
+                  )}
+                </div>
+                {consoleOutput && (
+                  <button
+                    onClick={() => setConsoleOutput(null)}
+                    className="hover:text-slate-200 text-slate-500 cursor-pointer px-2 py-0.5 rounded bg-slate-800 text-[11px]"
+                  >
+                    Clear Output
+                  </button>
                 )}
               </div>
-              {consoleOutput && (
-                <button
-                  onClick={() => setConsoleOutput(null)}
-                  className="hover:text-white text-neutral-500 cursor-pointer"
-                >
-                  Clear
-                </button>
-              )}
+
+              {/* Terminal Body */}
+              <div className="p-4 flex-1 overflow-y-auto text-slate-200 selection:bg-sky-500/30">
+                {isRunning && (
+                  <div className="flex items-center gap-2 text-amber-400 italic font-sans">
+                    <span className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
+                    Executing code... Please wait...
+                  </div>
+                )}
+
+                {(language === "html" || language === "css") && htmlPreview && !isRunning && (
+                  <div className="w-full h-full border border-slate-800 bg-white rounded overflow-hidden">
+                    <iframe title="HTML Preview" srcDoc={htmlPreview} className="w-full h-full border-0" />
+                  </div>
+                )}
+
+                {!isRunning && consoleOutput && (
+                  <>
+                    {consoleOutput.stdout && (
+                      <pre className="whitespace-pre-wrap font-mono leading-relaxed text-slate-100">{consoleOutput.stdout}</pre>
+                    )}
+                    {consoleOutput.stderr && (
+                      <div className="p-2.5 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300 whitespace-pre-wrap font-mono">
+                        <span className="font-bold text-rose-400 block mb-1">Execution Error:</span>
+                        {consoleOutput.stderr}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
+                  <div className="text-slate-500 italic font-sans">
+                    Click green <strong className="text-emerald-400 font-semibold">"▶ Run Code"</strong> button in top header to execute code and view output here...
+                  </div>
+                )}
+              </div>
             </div>
-
-            <div className="p-3 flex-1 overflow-y-auto text-neutral-200 selection:bg-[#264f78]">
-              {isRunning && <div className="text-amber-400">Executing code...</div>}
-
-              {(language === "html" || language === "css") && htmlPreview && !isRunning && (
-                <div className="w-full h-full border border-[#333333] bg-white rounded overflow-hidden">
-                  <iframe title="HTML Preview" srcDoc={htmlPreview} className="w-full h-full border-0" />
-                </div>
-              )}
-
-              {!isRunning && consoleOutput && (
-                <>
-                  {consoleOutput.stdout && <pre className="whitespace-pre-wrap leading-relaxed">{consoleOutput.stdout}</pre>}
-                  {consoleOutput.stderr && <div className="text-red-400 whitespace-pre-wrap">{consoleOutput.stderr}</div>}
-                </>
-              )}
-
-              {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
-                <div className="text-neutral-600">Click "▶ Run Code" to see execution output here...</div>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-    </main>
+          )}
+        </section>
+      </div>
+    </div>
   )
 }
 
