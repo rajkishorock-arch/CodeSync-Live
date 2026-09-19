@@ -16,13 +16,13 @@ const LANGUAGE_CONFIG = [
 ]
 
 const STARTER_SNIPPETS = {
-  javascript: `// JavaScript Live CodeSync Demo\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync Developer");\n`,
-  python: `# Python 3 Live CodeSync Demo\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync Developer")\n`,
-  cpp: `// C/C++ Live CodeSync Demo\n#include <stdio.h>\n\nint main() {\n    printf("Hello, CodeSync Developer!\\n");\n    return 0;\n}\n`,
-  java: `// Java Live CodeSync Demo\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync Developer!");\n    }\n}\n`,
-  typescript: `// TypeScript Live CodeSync Demo\nconst greeting: string = "Hello, CodeSync Developer!";\nconsole.log(greeting);\n`,
+  javascript: `// JavaScript Live Demo\nfunction greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("CodeSync User");\n`,
+  python: `# Python 3 Live Demo\ndef greet(name):\n    print(f"Hello, {name}!")\n\ngreet("CodeSync User")\n`,
+  cpp: `// C/C++ Live Demo\n#include <stdio.h>\n\nint main() {\n    printf("Hello, CodeSync User!\\n");\n    return 0;\n}\n`,
+  java: `// Java Live Demo\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, CodeSync User!");\n    }\n}\n`,
+  typescript: `// TypeScript Live Demo\nconst greeting: string = "Hello, CodeSync User!";\nconsole.log(greeting);\n`,
   html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; text-align: center; }\n    h1 { color: #58a6ff; font-weight: 600; }\n  </style>\n</head>\n<body>\n  <h1>Hello from CodeSync Live!</h1>\n  <p>Edit HTML and click Run Code to update live preview.</p>\n</body>\n</html>\n`,
-  css: `/* CSS Live CodeSync Demo */\nbody {\n  background-color: #0d1117;\n  color: #58a6ff;\n}\n`
+  css: `/* CSS Live Demo */\nbody {\n  background-color: #0d1117;\n  color: #58a6ff;\n}\n`
 }
 
 function getLanguageFromFileName(filename) {
@@ -37,7 +37,6 @@ function getLanguageFromFileName(filename) {
   return "javascript"
 }
 
-// User Avatar Color Hash
 function getUserColor(name) {
   const colors = ["#238636", "#1f6feb", "#8957e5", "#d29922", "#da3633", "#3fb950"]
   let hash = 0
@@ -58,7 +57,8 @@ function App() {
   const [fontSize, setFontSize] = useState(14)
   const [copiedLink, setCopiedLink] = useState(false)
   
-  // Sidebar Tab: "files" | "chat" | "users"
+  // Mobile responsive sidebar drawer state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeSidebarTab, setActiveSidebarTab] = useState("files")
 
   // Multi-file state
@@ -81,7 +81,6 @@ function App() {
   const yFilesMap = useMemo(() => ydoc.getMap("files_meta"), [ydoc])
   const yChatArray = useMemo(() => ydoc.getArray("chat_messages"), [ydoc])
 
-  // Current file language
   const language = useMemo(() => getLanguageFromFileName(activeFileName), [activeFileName])
 
   const bindEditorToFile = (fileName, editor = editorRef.current) => {
@@ -114,6 +113,10 @@ function App() {
   const handleSelectFile = (fileName) => {
     setActiveFileName(fileName)
     bindEditorToFile(fileName)
+    // Auto-close sidebar on mobile after choosing a file
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false)
+    }
   }
 
   const handleCreateFile = (e) => {
@@ -245,7 +248,7 @@ function App() {
     }
   }, [username, ydoc])
 
-  // Code Execution Engine
+  // Multi-Engine Execution
   const handleRunCode = async () => {
     const activeFileYText = ydoc.getText(`file_${activeFileName}`)
     const codeToRun = activeFileYText.toString()
@@ -259,7 +262,6 @@ function App() {
     setShowConsole(true)
     setIsRunning(true)
 
-    // Mode 1: HTML / CSS Preview
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
@@ -279,7 +281,6 @@ function App() {
       return
     }
 
-    // Mode 2: In-Browser JS Engine
     if (language === "javascript" || language === "typescript") {
       const logs = []
       const customConsole = {
@@ -320,7 +321,6 @@ function App() {
       return
     }
 
-    // Mode 3: Judge0 API
     const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
     try {
       const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
@@ -360,25 +360,22 @@ function App() {
     }
   }
 
-  // Welcome / Join Screen
+  // Welcome / Login Screen
   if (!username) {
     return (
       <main className="min-h-screen w-full bg-[#0d1117] flex items-center justify-center p-4 font-sans text-[#c9d1d9]">
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8 max-w-sm w-full shadow-2xl">
-          <div className="flex items-center gap-3 mb-6 justify-center">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 sm:p-8 max-w-sm w-full shadow-2xl">
+          <div className="flex items-center gap-2.5 mb-6 justify-center">
             <span className="text-3xl">⚡</span>
             <h1 className="text-xl font-bold text-[#f0f6fc]">CodeSync Live</h1>
           </div>
-          <p className="text-[#8b949e] text-xs mb-6 text-center leading-relaxed">
-            Real-time collaborative code editor & live execution platform.
-          </p>
           <form onSubmit={handleJoin} className="flex flex-col gap-4">
             <div>
               <label className="block text-[#c9d1d9] text-xs font-semibold mb-2">Username</label>
               <input
                 type="text"
                 placeholder="e.g. Raj"
-                className="w-full px-3.5 py-2.5 rounded-lg bg-[#0d1117] text-[#f0f6fc] border border-[#30363d] focus:outline-none focus:border-[#58a6ff] text-sm transition-colors"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-[#0d1117] text-[#f0f6fc] border border-[#30363d] focus:outline-none focus:border-[#58a6ff] text-sm"
                 name="username"
                 required
                 autoFocus
@@ -386,7 +383,7 @@ function App() {
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-lg bg-[#238636] hover:bg-[#2ea043] text-white font-semibold text-sm transition-all cursor-pointer shadow-md"
+              className="w-full py-2.5 rounded-lg bg-[#238636] hover:bg-[#2ea043] text-white font-semibold text-sm transition-all cursor-pointer"
             >
               Join Collaboration Workspace
             </button>
@@ -397,29 +394,39 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-full bg-[#0d1117] flex flex-col font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30">
-      {/* Top Application Header Bar */}
-      <header className="h-12 bg-[#161b22] border-b border-[#30363d] px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+    <div className="h-screen w-full bg-[#0d1117] flex flex-col font-sans text-[#c9d1d9] overflow-hidden selection:bg-[#1f6feb]/30 relative">
+      {/* Responsive Top Application Header Bar */}
+      <header className="h-12 bg-[#161b22] border-b border-[#30363d] px-3 sm:px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Mobile Sidebar Toggle Button */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="md:hidden px-2 py-1 bg-[#21262d] border border-[#30363d] rounded text-xs text-[#c9d1d9] cursor-pointer"
+            title="Toggle Sidebar"
+          >
+            {isSidebarOpen ? "✕" : "☰ Sidebar"}
+          </button>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="text-lg">⚡</span>
-            <span className="font-bold text-sm text-[#f0f6fc]">CodeSync Live</span>
+            <span className="font-bold text-xs sm:text-sm text-[#f0f6fc] truncate">CodeSync Live</span>
           </div>
-          <div className="hidden md:flex items-center gap-2 px-2.5 py-0.5 bg-[#0d1117] rounded-md border border-[#30363d] text-xs text-[#8b949e]">
+
+          <div className="hidden lg:flex items-center gap-2 px-2.5 py-0.5 bg-[#0d1117] rounded-md border border-[#30363d] text-xs text-[#8b949e]">
             <span className="w-2 h-2 rounded-full bg-[#3fb950] animate-pulse"></span>
-            <span>Room: Main Workspace</span>
+            <span>Room: Default</span>
           </div>
         </div>
 
         {/* User Avatars & Execution Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Active User Avatars */}
           <div className="hidden sm:flex items-center -space-x-1.5 overflow-hidden">
             {users.map((u, i) => (
               <div
                 key={i}
                 title={u.username}
-                className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center border-2 border-[#161b22]"
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full text-white text-[10px] sm:text-[11px] font-bold flex items-center justify-center border-2 border-[#161b22]"
                 style={{ backgroundColor: getUserColor(u.username) }}
               >
                 {u.username.substring(0, 2).toUpperCase()}
@@ -429,28 +436,28 @@ function App() {
 
           <button
             onClick={handleCopyInviteLink}
-            className="px-3 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded-md border border-[#30363d] transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-2.5 py-1.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded-md border border-[#30363d] transition-colors cursor-pointer flex items-center gap-1"
           >
             <span>🔗</span>
-            <span>{copiedLink ? "Link Copied!" : "Share Link"}</span>
+            <span className="hidden sm:inline">{copiedLink ? "Link Copied!" : "Share Link"}</span>
           </button>
 
           <button
             onClick={handleRunCode}
             disabled={isRunning}
-            className={`px-4 py-1.5 rounded-md font-bold text-xs text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+            className={`px-3 sm:px-4 py-1.5 rounded-md font-bold text-xs text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
               isRunning ? "bg-[#d29922] opacity-80 cursor-not-allowed" : "bg-[#238636] hover:bg-[#2ea043]"
             }`}
           >
             {isRunning ? (
               <>
                 <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span>Running...</span>
+                <span className="hidden sm:inline">Running...</span>
               </>
             ) : (
               <>
                 <span>▶</span>
-                <span>Run Code</span>
+                <span>Run</span>
               </>
             )}
           </button>
@@ -458,207 +465,222 @@ function App() {
       </header>
 
       {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Activity Bar (VS Code Style Icons) */}
-        <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-2 gap-3 shrink-0">
-          <button
-            onClick={() => setActiveSidebarTab("files")}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-              activeSidebarTab === "files" ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
-            }`}
-            title="Files Explorer"
-          >
-            📁
-          </button>
-          <button
-            onClick={() => setActiveSidebarTab("chat")}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-              activeSidebarTab === "chat" ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
-            }`}
-            title="Room Chat"
-          >
-            💬
-            {messages.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#1f6feb] text-white text-[9px] font-bold rounded-full">
-                {messages.length}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Backdrop overlay for mobile sidebar */}
+        {isSidebarOpen && (
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden fixed inset-0 bg-black/60 z-30"
+          />
+        )}
+
+        {/* Responsive Sidebar (Fixed on Desktop, Slide-over Drawer on Mobile) */}
+        <aside
+          className={`${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } md:translate-x-0 transition-transform duration-200 ease-in-out fixed md:relative z-40 inset-y-12 left-0 w-72 md:w-64 bg-[#161b22] border-r border-[#30363d] flex shrink-0 shadow-2xl md:shadow-none`}
+        >
+          {/* Left Activity Bar Icons */}
+          <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-2 gap-3 shrink-0">
+            <button
+              onClick={() => setActiveSidebarTab("files")}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
+                activeSidebarTab === "files" ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+              }`}
+              title="Files Explorer"
+            >
+              📁
+            </button>
+            <button
+              onClick={() => setActiveSidebarTab("chat")}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
+                activeSidebarTab === "chat" ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+              }`}
+              title="Room Chat"
+            >
+              💬
+              {messages.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#1f6feb] text-white text-[9px] font-bold rounded-full">
+                  {messages.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveSidebarTab("users")}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
+                activeSidebarTab === "users" ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
+              }`}
+              title="Active Users"
+            >
+              👥
+              <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#238636] text-white text-[9px] font-bold rounded-full">
+                {users.length}
               </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveSidebarTab("users")}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-              activeSidebarTab === "users" ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40" : "text-[#8b949e] hover:text-[#c9d1d9]"
-            }`}
-            title="Active Users"
-          >
-            👥
-            <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#238636] text-white text-[9px] font-bold rounded-full">
-              {users.length}
-            </span>
-          </button>
-        </div>
+            </button>
+          </div>
 
-        {/* Sidebar Panel */}
-        <aside className="w-60 bg-[#161b22] border-r border-[#30363d] flex flex-col shrink-0">
-          {/* Tab 1: File Explorer */}
-          {activeSidebarTab === "files" && (
-            <div className="flex-1 flex flex-col p-3 overflow-hidden">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Explorer</span>
-                <button
-                  onClick={() => setIsCreatingFile(!isCreatingFile)}
-                  className="px-2 py-0.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded border border-[#30363d] transition-colors cursor-pointer"
-                >
-                  + New
-                </button>
+          {/* Sidebar Tab Content */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
+            {/* Tab 1: File Explorer */}
+            {activeSidebarTab === "files" && (
+              <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Explorer</span>
+                  <button
+                    onClick={() => setIsCreatingFile(!isCreatingFile)}
+                    className="px-2 py-0.5 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-semibold rounded border border-[#30363d] cursor-pointer"
+                  >
+                    + New File
+                  </button>
+                </div>
+
+                {isCreatingFile && (
+                  <form onSubmit={handleCreateFile} className="mb-3 flex gap-1">
+                    <input
+                      type="text"
+                      placeholder="filename.js"
+                      value={newFileName}
+                      onChange={(e) => setNewFileName(e.target.value)}
+                      className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-2.5 py-1 bg-[#238636] text-white text-xs font-semibold rounded cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </form>
+                )}
+
+                <ul className="flex-1 overflow-y-auto space-y-1 pr-1">
+                  {filesList.map((fileName) => {
+                    const isSelected = fileName === activeFileName
+                    const fileLang = getLanguageFromFileName(fileName)
+                    return (
+                      <li
+                        key={fileName}
+                        onClick={() => handleSelectFile(fileName)}
+                        className={`group px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium cursor-pointer transition-colors border ${
+                          isSelected
+                            ? "bg-[#1f6feb]/15 border-[#1f6feb]/40 text-[#58a6ff] font-semibold"
+                            : "bg-transparent border-transparent text-[#c9d1d9] hover:bg-[#21262d]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="text-xs">
+                            {fileLang === "javascript" && "📜"}
+                            {fileLang === "python" && "🐍"}
+                            {fileLang === "cpp" && "⚙️"}
+                            {fileLang === "java" && "☕"}
+                            {fileLang === "typescript" && "📘"}
+                            {fileLang === "html" && "🌐"}
+                            {fileLang === "css" && "🎨"}
+                          </span>
+                          <span className="truncate">{fileName}</span>
+                        </div>
+
+                        <button
+                          onClick={(e) => handleDeleteFile(fileName, e)}
+                          className="opacity-0 group-hover:opacity-100 hover:text-[#f85149] text-[#8b949e] text-xs px-1 cursor-pointer"
+                          title="Delete file"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
+            )}
 
-              {isCreatingFile && (
-                <form onSubmit={handleCreateFile} className="mb-3 flex gap-1">
+            {/* Tab 2: Room Chat */}
+            {activeSidebarTab === "chat" && (
+              <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Room Chat</span>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {messages.length === 0 ? (
+                    <div className="text-center text-[#8b949e] text-xs mt-6 italic">
+                      No messages. Start typing below...
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <div key={msg.id} className="flex flex-col text-xs bg-[#0d1117] p-2 rounded border border-[#30363d]">
+                        <div className="flex items-center justify-between text-[10px] text-[#8b949e] mb-1">
+                          <span className="font-bold text-[#58a6ff]">{msg.sender}</span>
+                          <span>{msg.time}</span>
+                        </div>
+                        <div className="text-[#c9d1d9] break-words">{msg.text}</div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <form onSubmit={handleSendChatMessage} className="mt-2.5 flex gap-1.5">
                   <input
                     type="text"
-                    placeholder="filename.js"
-                    value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
-                    className="flex-1 px-2.5 py-1 text-xs bg-[#0d1117] border border-[#30363d] rounded text-[#f0f6fc] focus:outline-none focus:border-[#58a6ff]"
-                    autoFocus
+                    placeholder="Message..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] text-xs rounded-md focus:outline-none"
                   />
                   <button
                     type="submit"
-                    className="px-2.5 py-1 bg-[#238636] text-white text-xs font-semibold rounded cursor-pointer"
+                    className="px-3 py-1.5 bg-[#d29922] hover:bg-[#b08018] text-white font-bold text-xs rounded-md cursor-pointer"
                   >
-                    Add
+                    Send
                   </button>
                 </form>
-              )}
+              </div>
+            )}
 
-              <ul className="flex-1 overflow-y-auto space-y-1 pr-1">
-                {filesList.map((fileName) => {
-                  const isSelected = fileName === activeFileName
-                  const fileLang = getLanguageFromFileName(fileName)
-                  return (
+            {/* Tab 3: Users */}
+            {activeSidebarTab === "users" && (
+              <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Active Users ({users.length})</span>
+                </div>
+                <ul className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                  {users.map((user, index) => (
                     <li
-                      key={fileName}
-                      onClick={() => handleSelectFile(fileName)}
-                      className={`group px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs font-medium cursor-pointer transition-colors border ${
-                        isSelected
-                          ? "bg-[#1f6feb]/15 border-[#1f6feb]/40 text-[#58a6ff] font-semibold"
-                          : "bg-transparent border-transparent text-[#c9d1d9] hover:bg-[#21262d]"
-                      }`}
+                      key={index}
+                      className="p-2 bg-[#0d1117] border border-[#30363d] rounded-md flex items-center gap-2 text-xs text-[#c9d1d9]"
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-xs">
-                          {fileLang === "javascript" && "📜"}
-                          {fileLang === "python" && "🐍"}
-                          {fileLang === "cpp" && "⚙️"}
-                          {fileLang === "java" && "☕"}
-                          {fileLang === "typescript" && "📘"}
-                          {fileLang === "html" && "🌐"}
-                          {fileLang === "css" && "🎨"}
-                        </span>
-                        <span className="truncate">{fileName}</span>
-                      </div>
-
-                      <button
-                        onClick={(e) => handleDeleteFile(fileName, e)}
-                        className="opacity-0 group-hover:opacity-100 hover:text-[#f85149] text-[#8b949e] text-xs px-1 cursor-pointer transition-opacity"
-                        title="Delete file"
+                      <span
+                        className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
+                        style={{ backgroundColor: getUserColor(user.username) }}
                       >
-                        ✕
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          )}
-
-          {/* Tab 2: Integrated Chat */}
-          {activeSidebarTab === "chat" && (
-            <div className="flex-1 flex flex-col p-3 overflow-hidden">
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Room Chat</span>
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                {messages.length === 0 ? (
-                  <div className="text-center text-[#8b949e] text-xs mt-6 italic">
-                    No messages. Start typing below...
-                  </div>
-                ) : (
-                  messages.map((msg) => (
-                    <div key={msg.id} className="flex flex-col text-xs bg-[#0d1117] p-2 rounded border border-[#30363d]">
-                      <div className="flex items-center justify-between text-[10px] text-[#8b949e] mb-1">
-                        <span className="font-bold text-[#58a6ff]">{msg.sender}</span>
-                        <span>{msg.time}</span>
-                      </div>
-                      <div className="text-[#c9d1d9] break-words">{msg.text}</div>
-                    </div>
-                  ))
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              <form onSubmit={handleSendChatMessage} className="mt-2.5 flex gap-1.5">
-                <input
-                  type="text"
-                  placeholder="Message..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  className="flex-1 px-2.5 py-1.5 bg-[#0d1117] border border-[#30363d] text-[#f0f6fc] text-xs rounded-md focus:outline-none focus:border-[#58a6ff]"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-[#d29922] hover:bg-[#b08018] text-white font-bold text-xs rounded-md cursor-pointer transition-colors"
-                >
-                  Send
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Tab 3: Users */}
-          {activeSidebarTab === "users" && (
-            <div className="flex-1 flex flex-col p-3 overflow-hidden">
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-[11px] font-bold text-[#8b949e] uppercase tracking-wider">Active Users ({users.length})</span>
-              </div>
-              <ul className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-                {users.map((user, index) => (
-                  <li
-                    key={index}
-                    className="p-2 bg-[#0d1117] border border-[#30363d] rounded-md flex items-center gap-2 text-xs text-[#c9d1d9]"
-                  >
-                    <span
-                      className="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                      style={{ backgroundColor: getUserColor(user.username) }}
-                    >
-                      {user.username.substring(0, 2).toUpperCase()}
-                    </span>
-                    <span className="truncate font-medium">{user.username}</span>
-                    {user.username === username && (
-                      <span className="ml-auto text-[9px] bg-[#1f6feb]/20 text-[#58a6ff] px-1 py-0.2 rounded border border-[#1f6feb]/40">
-                        YOU
+                        {user.username.substring(0, 2).toUpperCase()}
                       </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                      <span className="truncate font-medium">{user.username}</span>
+                      {user.username === username && (
+                        <span className="ml-auto text-[9px] bg-[#1f6feb]/20 text-[#58a6ff] px-1 py-0.2 rounded border border-[#1f6feb]/40">
+                          YOU
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          {/* Status Bar */}
-          <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#3fb950]">
-              <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
-            </span>
-            <span>Yjs Live</span>
+            {/* Sidebar Footer */}
+            <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[#3fb950]">
+                <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
+              </span>
+              <span>Yjs Live</span>
+            </div>
           </div>
         </aside>
 
-        {/* Main Editor Section */}
-        <section className="flex-1 h-full flex flex-col bg-[#0d1117] overflow-hidden">
+        {/* Main Editor Section (Takes 100% Width on Mobile) */}
+        <section className="flex-1 h-full flex flex-col bg-[#0d1117] overflow-hidden w-full min-w-0">
           {/* File Tabs Bar */}
-          <div className="flex items-center bg-[#161b22] border-b border-[#30363d] overflow-x-auto px-1 pt-1 gap-1">
+          <div className="flex items-center bg-[#161b22] border-b border-[#30363d] overflow-x-auto px-1 pt-1 gap-1 scrollbar-none">
             {filesList.map((fileName) => {
               const isActive = fileName === activeFileName
               const fileLang = getLanguageFromFileName(fileName)
@@ -688,39 +710,25 @@ function App() {
           </div>
 
           {/* Sub-Header Toolbar */}
-          <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-3 text-xs">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Language:</span>
+          <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-1">
+                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Lang:</span>
                 <span className="px-2 py-0.5 bg-[#161b22] border border-[#30363d] text-[#58a6ff] font-bold rounded uppercase text-xs">
                   {language}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="hidden sm:flex items-center gap-1.5">
                 <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Theme:</span>
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-2 py-0.5 focus:outline-none cursor-pointer"
+                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-2 py-0.5 focus:outline-none"
                 >
                   <option value="vs-dark">VS Dark</option>
                   <option value="light">VS Light</option>
                   <option value="hc-black">High Contrast</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#8b949e] font-semibold text-[11px] uppercase">Font:</span>
-                <select
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="bg-[#161b22] border border-[#30363d] text-[#c9d1d9] rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
-                >
-                  <option value={12}>12px</option>
-                  <option value={14}>14px</option>
-                  <option value={16}>16px</option>
-                  <option value={18}>18px</option>
                 </select>
               </div>
             </div>
@@ -733,7 +741,7 @@ function App() {
             </button>
           </div>
 
-          {/* Editor Container */}
+          {/* Monaco Editor Container (Full Width) */}
           <div className="flex-1 relative overflow-hidden">
             <Editor
               height="100%"
@@ -741,7 +749,7 @@ function App() {
               theme={theme}
               options={{
                 fontSize: fontSize,
-                minimap: { enabled: true },
+                minimap: { enabled: false }, // Disabled minimap on mobile for more space
                 automaticLayout: true,
                 scrollBeyondLastLine: false,
                 padding: { top: 8, bottom: 8 }
@@ -752,12 +760,12 @@ function App() {
 
           {/* Terminal Console Output Drawer */}
           {showConsole && (
-            <div className="h-44 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
+            <div className="h-40 sm:h-44 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
               {/* Terminal Header */}
               <div className="px-3 py-1.5 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e]">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5">
-                    <span className="text-[#3fb950]">❯_</span> Output Terminal ({activeFileName})
+                    <span className="text-[#3fb950]">❯_</span> Terminal ({activeFileName})
                   </span>
                   {consoleOutput && (
                     <span
@@ -767,7 +775,7 @@ function App() {
                           : "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/30"
                       }`}
                     >
-                      {consoleOutput.status} {consoleOutput.time && `(${consoleOutput.time})`}
+                      {consoleOutput.status}
                     </span>
                   )}
                 </div>
@@ -776,7 +784,7 @@ function App() {
                     onClick={() => setConsoleOutput(null)}
                     className="hover:text-[#f0f6fc] text-[#8b949e] cursor-pointer px-2 py-0.5 rounded bg-[#21262d] text-[11px]"
                   >
-                    Clear Output
+                    Clear
                   </button>
                 )}
               </div>
@@ -786,7 +794,7 @@ function App() {
                 {isRunning && (
                   <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
                     <span className="w-3 h-3 border-2 border-[#d29922] border-t-transparent rounded-full animate-spin"></span>
-                    Executing code... Please wait...
+                    Executing code...
                   </div>
                 )}
 
@@ -811,8 +819,8 @@ function App() {
                 )}
 
                 {!isRunning && !consoleOutput && (language !== "html" && language !== "css") && (
-                  <div className="text-[#8b949e] italic font-sans">
-                    Click green <strong className="text-[#3fb950] font-semibold">"▶ Run Code"</strong> button in top header to execute code and view output here...
+                  <div className="text-[#8b949e] italic font-sans text-xs">
+                    Click green <strong className="text-[#3fb950] font-semibold">"▶ Run"</strong> button to execute code...
                   </div>
                 )}
               </div>
