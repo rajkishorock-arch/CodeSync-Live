@@ -6,13 +6,13 @@ import * as Y from "yjs"
 import { WebsocketProvider } from "y-websocket"
 
 const LANGUAGE_CONFIG = [
-  { id: "javascript", label: "JavaScript (Node.js)", pistonLang: "javascript", version: "*", ext: ".js" },
-  { id: "python", label: "Python 3", pistonLang: "python3", version: "*", ext: ".py" },
-  { id: "cpp", label: "C++ (GCC)", pistonLang: "c++", version: "*", ext: ".cpp" },
-  { id: "java", label: "Java", pistonLang: "java", version: "*", ext: ".java" },
-  { id: "typescript", label: "TypeScript", pistonLang: "typescript", version: "*", ext: ".ts" },
-  { id: "html", label: "HTML5", pistonLang: null, version: null, ext: ".html" },
-  { id: "css", label: "CSS3", pistonLang: null, version: null, ext: ".css" }
+  { id: "javascript", label: "JavaScript (Node.js)", judge0Id: 63, ext: ".js" },
+  { id: "python", label: "Python 3", judge0Id: 71, ext: ".py" },
+  { id: "cpp", label: "C++ (GCC)", judge0Id: 54, ext: ".cpp" },
+  { id: "java", label: "Java", judge0Id: 62, ext: ".java" },
+  { id: "typescript", label: "TypeScript", judge0Id: 74, ext: ".ts" },
+  { id: "html", label: "HTML5", judge0Id: null, ext: ".html" },
+  { id: "css", label: "CSS3", judge0Id: null, ext: ".css" }
 ]
 
 const STARTER_SNIPPETS = {
@@ -78,7 +78,6 @@ function App() {
   const bindEditorToFile = (fileName, editor = editorRef.current) => {
     if (!editor) return
 
-    // Clean up previous binding
     if (bindingRef.current) {
       bindingRef.current.destroy()
       bindingRef.current = null
@@ -86,7 +85,6 @@ function App() {
 
     const fileYText = ydoc.getText(`file_${fileName}`)
 
-    // Set starter snippet if file is completely new & empty
     if (fileYText.toString().trim() === "") {
       const fileLang = getLanguageFromFileName(fileName)
       fileYText.insert(0, STARTER_SNIPPETS[fileLang] || `// ${fileName}\n`)
@@ -104,19 +102,16 @@ function App() {
     bindEditorToFile(activeFileName, editor)
   }
 
-  // Switch Active File
   const handleSelectFile = (fileName) => {
     setActiveFileName(fileName)
     bindEditorToFile(fileName)
   }
 
-  // Create New File
   const handleCreateFile = (e) => {
     e.preventDefault()
     let name = newFileName.trim()
     if (!name) return
 
-    // Add default extension if missing
     if (!name.includes(".")) {
       name += ".js"
     }
@@ -130,7 +125,6 @@ function App() {
     setIsCreatingFile(false)
   }
 
-  // Delete File
   const handleDeleteFile = (fileName, e) => {
     e.stopPropagation()
     if (filesList.length <= 1) {
@@ -147,7 +141,6 @@ function App() {
     }
   }
 
-  // Handle Room Joining
   const handleJoin = (e) => {
     e.preventDefault()
     const nameInput = e.target.username.value.trim()
@@ -157,7 +150,6 @@ function App() {
     }
   }
 
-  // Send Chat Message
   const handleSendChatMessage = (e) => {
     e.preventDefault()
     const text = chatInput.trim()
@@ -174,12 +166,10 @@ function App() {
     setChatInput("")
   }
 
-  // Sync Yjs Files Map
   useEffect(() => {
     const handleFilesChange = () => {
       const currentKeys = Array.from(yFilesMap.keys())
       if (currentKeys.length === 0) {
-        // Init default files if empty
         yFilesMap.set("main.js", { createdBy: "System" })
         yFilesMap.set("index.html", { createdBy: "System" })
         yFilesMap.set("style.css", { createdBy: "System" })
@@ -195,7 +185,6 @@ function App() {
     return () => yFilesMap.unobserve(handleFilesChange)
   }, [yFilesMap])
 
-  // Sync Yjs Chat Array
   useEffect(() => {
     const handleChatChange = () => {
       setMessages(yChatArray.toArray())
@@ -207,14 +196,12 @@ function App() {
     return () => yChatArray.unobserve(handleChatChange)
   }, [yChatArray])
 
-  // Auto-scroll chat to bottom
   useEffect(() => {
     if (activeSidebarTab === "chat") {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
   }, [messages, activeSidebarTab])
 
-  // Sync Provider & Awareness
   useEffect(() => {
     if (username) {
       const websocketUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
@@ -243,7 +230,7 @@ function App() {
     }
   }, [username, ydoc])
 
-  // Code Execution Engine using Piston API
+  // Robust Multi-Engine Code Runner (In-browser JS Sandbox + Judge0 CE API)
   const handleRunCode = async () => {
     const activeFileYText = ydoc.getText(`file_${activeFileName}`)
     const codeToRun = activeFileYText.toString()
@@ -257,9 +244,7 @@ function App() {
     setShowConsole(true)
     setIsRunning(true)
 
-    const selectedLangObj = LANGUAGE_CONFIG.find(l => l.id === language)
-
-    // Handle HTML/CSS Live Preview
+    // Mode 1: HTML / CSS Live DOM Rendering
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
@@ -269,9 +254,9 @@ function App() {
 
       setHtmlPreview(combinedHTML)
       setConsoleOutput({
-        stdout: `Live ${language.toUpperCase()} Preview updated.`,
+        stdout: `Live ${language.toUpperCase()} Preview rendered below.`,
         stderr: "",
-        time: 0,
+        time: "0.00s",
         status: "Rendered",
         isError: false
       })
@@ -279,53 +264,82 @@ function App() {
       return
     }
 
+    // Mode 2: In-Browser Instant Execution for JavaScript & TypeScript
+    if (language === "javascript" || language === "typescript") {
+      const logs = []
+      const customConsole = {
+        log: (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
+        error: (...args) => logs.push("[Error] " + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
+        warn: (...args) => logs.push("[Warn] " + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
+        info: (...args) => logs.push("[Info] " + args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(" "))
+      }
+
+      const startTime = performance.now()
+      try {
+        // Strip TS type annotations if TypeScript
+        let executableCode = codeToRun
+        if (language === "typescript") {
+          executableCode = codeToRun.replace(/:\s*\w+/g, "")
+        }
+
+        const runFn = new Function('console', executableCode)
+        runFn(customConsole)
+        const duration = ((performance.now() - startTime) / 1000).toFixed(3)
+
+        setConsoleOutput({
+          stdout: logs.join("\n") || "(Code executed successfully with 0 output statements)",
+          stderr: "",
+          status: "Success (Browser JS Engine)",
+          time: `${duration}s`,
+          isError: false
+        })
+      } catch (err) {
+        setConsoleOutput({
+          stdout: logs.join("\n"),
+          stderr: err.toString(),
+          status: "Runtime Error",
+          time: "0.00s",
+          isError: true
+        })
+      } finally {
+        setIsRunning(false)
+      }
+      return
+    }
+
+    // Mode 3: Judge0 CE API Execution (Python, C++, Java, etc.)
+    const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
     try {
-      const response = await fetch("https://emkc.org/api/v2/piston/execute", {
+      const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          language: selectedLangObj?.pistonLang || language,
-          version: selectedLangObj?.version || "*",
-          files: [
-            {
-              name: activeFileName,
-              content: codeToRun
-            }
-          ]
+          source_code: codeToRun,
+          language_id: langObj?.judge0Id || 71
         })
       })
 
       const data = await response.json()
 
-      if (data.run) {
-        const stdout = data.run.stdout || ""
-        const stderr = data.run.stderr || (data.compile?.stderr || "")
-        const isErr = data.run.code !== 0 || !!stderr
+      const stdout = data.stdout || ""
+      const stderr = data.stderr || (data.compile_output || "")
+      const isErr = !!stderr || (data.status && data.status.id !== 3)
 
-        setConsoleOutput({
-          stdout: stdout,
-          stderr: stderr,
-          status: data.run.code === 0 ? "Success" : `Exit Code ${data.run.code}`,
-          time: data.run.signal ? data.run.signal : "Completed",
-          isError: isErr
-        })
-      } else if (data.message) {
-        setConsoleOutput({
-          stdout: "",
-          stderr: data.message,
-          status: "API Error",
-          time: 0,
-          isError: true
-        })
-      }
+      setConsoleOutput({
+        stdout: stdout,
+        stderr: stderr,
+        status: data.status ? data.status.description : "Completed",
+        time: data.time ? `${data.time}s` : "Finished",
+        isError: isErr
+      })
     } catch (err) {
       setConsoleOutput({
         stdout: "",
-        stderr: `Failed to execute code: ${err.message}. Please check network connection.`,
-        status: "Network Failure",
-        time: 0,
+        stderr: `Execution server error: ${err.message}.`,
+        status: "Network Error",
+        time: "0.00s",
         isError: true
       })
     } finally {
@@ -713,7 +727,7 @@ function App() {
               {isRunning && (
                 <div className="flex items-center gap-2 text-amber-400 italic">
                   <span className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
-                  Executing code via Piston runner API...
+                  Executing code...
                 </div>
               )}
 
