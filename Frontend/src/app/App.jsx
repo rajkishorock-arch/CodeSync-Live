@@ -11,12 +11,10 @@ import AiAssistant from "../components/AiAssistant"
 import FileExplorer from "../components/FileExplorer"
 import RoomChat from "../components/RoomChat"
 import ActiveUsers from "../components/ActiveUsers"
-import HeaderNavbar from "../components/HeaderNavbar"
 import TerminalDrawer from "../components/TerminalDrawer"
 import DiffViewer from "../components/DiffViewer"
-import EditorSettings from "../components/EditorSettings"
-import SidebarSettings from "../components/SidebarSettings"
-import VoiceCall from "../components/VoiceCall"
+import SidebarContainer from "../components/SidebarContainer"
+import EditorToolbar from "../components/EditorToolbar"
 
 const LANGUAGE_CONFIG = [
   { id: "javascript", label: "JavaScript", judge0Id: 63, ext: ".js" },
@@ -662,296 +660,76 @@ function App() {
           <div onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-30" />
         )}
 
-        {/* Sidebar */}
-        <aside
-          style={{ width: window.innerWidth >= 768 ? `${sidebarWidth}px` : "280px" }}
-          className={`${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } md:translate-x-0 transition-transform duration-150 ease-in-out fixed md:relative z-40 inset-y-0 left-0 bg-[#161b22] border-r border-[#30363d] flex shrink-0 shadow-2xl md:shadow-none select-none`}
-        >
-          {/* Activity Bar Column (Leftmost 48px) */}
-          <div className="w-12 bg-[#161b22] border-r border-[#30363d] flex flex-col items-center py-3 gap-3 shrink-0 h-full">
-            {/* Top Activity Icons */}
-            <button
-              onClick={() => setActiveSidebarTab(activeSidebarTab === "files" ? null : "files")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-                activeSidebarTab === "files"
-                  ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
-                  : "text-[#8b949e] hover:text-[#c9d1d9]"
-              }`}
-              title="Files Explorer"
-            >
-              📁
-            </button>
+        {/* Modular Resizable Sidebar Container */}
+        <SidebarContainer
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          activeSidebarTab={activeSidebarTab}
+          setActiveSidebarTab={setActiveSidebarTab}
+          sidebarWidth={sidebarWidth}
+          handleSidebarMouseDown={handleSidebarMouseDown}
+          messages={messages}
+          users={users}
+          fileTree={fileTree}
+          filesList={filesList}
+          activeFileName={activeFileName}
+          fileLanguages={fileLanguages}
+          getLanguageFromFileName={getLanguageFromFileName}
+          handleSelectFile={handleSelectFile}
+          handleDeleteFile={handleDeleteFile}
+          isCreatingItem={isCreatingItem}
+          setIsCreatingItem={setIsCreatingItem}
+          newPathName={newPathName}
+          setNewPathName={setNewPathName}
+          handleCreateItem={handleCreateItem}
+          expandedFolders={expandedFolders}
+          toggleFolder={toggleFolder}
+          username={username}
+          docRef={docRef}
+          yFilesMapRef={yFilesMapRef}
+          setActiveFileName={setActiveFileName}
+          language={language}
+          editorRef={editorRef}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          handleSendChatMessage={handleSendChatMessage}
+          chatEndRef={chatEndRef}
+          getUserColor={getUserColor}
+          handleManualLanguageChange={handleManualLanguageChange}
+          LANGUAGE_CONFIG={LANGUAGE_CONFIG}
+          theme={theme}
+          setTheme={setTheme}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          tabSize={tabSize}
+          setTabSize={setTabSize}
+          wordWrap={wordWrap}
+          setWordWrap={setWordWrap}
+          minimap={minimap}
+          setMinimap={setMinimap}
+          roomId={roomId}
+          handleCopyLink={handleCopyInviteLink}
+          copiedLink={copiedLink}
+        />
 
-            <button
-              onClick={() => setActiveSidebarTab(activeSidebarTab === "git" ? null : "git")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-                activeSidebarTab === "git"
-                  ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40"
-                  : "text-[#8b949e] hover:text-[#c9d1d9]"
-              }`}
-              title="Source Control (Git)"
-            >
-              🌿
-            </button>
-
-            <button
-              onClick={() => setActiveSidebarTab(activeSidebarTab === "ai" ? null : "ai")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-                activeSidebarTab === "ai"
-                  ? "bg-[#bc8cff]/20 text-[#bc8cff] border border-[#bc8cff]/40"
-                  : "text-[#8b949e] hover:text-[#c9d1d9]"
-              }`}
-              title="AI Pair Programmer"
-            >
-              ✨
-            </button>
-
-            <button
-              onClick={() => setActiveSidebarTab(activeSidebarTab === "chat" ? null : "chat")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-                activeSidebarTab === "chat"
-                  ? "bg-[#d29922]/20 text-[#d29922] border border-[#d29922]/40"
-                  : "text-[#8b949e] hover:text-[#c9d1d9]"
-              }`}
-              title="Room Chat"
-            >
-              💬
-              {messages.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#1f6feb] text-white text-[9px] font-bold rounded-full">
-                  {messages.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveSidebarTab(activeSidebarTab === "users" ? null : "users")}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer relative ${
-                activeSidebarTab === "users"
-                  ? "bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40"
-                  : "text-[#8b949e] hover:text-[#c9d1d9]"
-              }`}
-              title="Active Users"
-            >
-              👥
-              <span className="absolute -top-0.5 -right-0.5 px-1 py-0.2 bg-[#238636] text-white text-[9px] font-bold rounded-full">
-                {users.length}
-              </span>
-            </button>
-
-            {/* Bottom Anchored Activity Icons */}
-            <div className="mt-auto flex flex-col items-center gap-3">
-              {/* WebRTC Voice Channel Toggle */}
-              <VoiceCall roomId={roomId} username={username} users={users} getUserColor={getUserColor} />
-
-              {/* Settings Toggle */}
-              <button
-                onClick={() => setActiveSidebarTab(activeSidebarTab === "settings" ? null : "settings")}
-                className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-colors cursor-pointer ${
-                  activeSidebarTab === "settings"
-                    ? "bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40"
-                    : "text-[#8b949e] hover:text-[#c9d1d9]"
-                }`}
-                title="Editor Settings & Language"
-              >
-                ⚙️
-              </button>
-            </div>
-          </div>
-
-          {/* Sidebar Tab Content Area */}
-          {activeSidebarTab && (
-            <div className="flex-1 flex flex-col overflow-hidden bg-[#161b22]">
-              {activeSidebarTab === "files" && (
-                <FileExplorer
-                  fileTree={fileTree}
-                  filesList={filesList}
-                  activeFileName={activeFileName}
-                  fileLanguages={fileLanguages}
-                  getLanguageFromFileName={getLanguageFromFileName}
-                  handleSelectFile={handleSelectFile}
-                  handleDeleteFile={handleDeleteFile}
-                  isCreatingItem={isCreatingItem}
-                  setIsCreatingItem={setIsCreatingItem}
-                  newPathName={newPathName}
-                  setNewPathName={setNewPathName}
-                  handleCreateItem={handleCreateItem}
-                  expandedFolders={expandedFolders}
-                  toggleFolder={toggleFolder}
-                />
-              )}
-
-              {activeSidebarTab === "git" && (
-                <GitPanel
-                  filesList={filesList}
-                  activeFileName={activeFileName}
-                  username={username}
-                  docRef={docRef}
-                  yFilesMapRef={yFilesMapRef}
-                  setActiveFileName={setActiveFileName}
-                />
-              )}
-
-              {activeSidebarTab === "ai" && (
-                <AiAssistant
-                  activeFileName={activeFileName}
-                  language={language}
-                  editorRef={editorRef}
-                  yFilesMapRef={yFilesMapRef}
-                />
-              )}
-
-              {activeSidebarTab === "chat" && (
-                <RoomChat
-                  messages={messages}
-                  chatInput={chatInput}
-                  setChatInput={setChatInput}
-                  handleSendChatMessage={handleSendChatMessage}
-                  chatEndRef={chatEndRef}
-                />
-              )}
-
-              {activeSidebarTab === "users" && (
-                <ActiveUsers users={users} username={username} getUserColor={getUserColor} />
-              )}
-
-              {activeSidebarTab === "settings" && (
-                <SidebarSettings
-                  language={language}
-                  handleManualLanguageChange={handleManualLanguageChange}
-                  LANGUAGE_CONFIG={LANGUAGE_CONFIG}
-                  theme={theme}
-                  setTheme={setTheme}
-                  fontSize={fontSize}
-                  setFontSize={setFontSize}
-                  tabSize={tabSize}
-                  setTabSize={setTabSize}
-                  wordWrap={wordWrap}
-                  setWordWrap={setWordWrap}
-                  minimap={minimap}
-                  setMinimap={setMinimap}
-                  roomId={roomId}
-                  handleCopyLink={handleCopyInviteLink}
-                  copiedLink={copiedLink}
-                  activeFileName={activeFileName}
-                />
-              )}
-
-              <div className="p-2 border-t border-[#30363d] bg-[#0d1117] text-[11px] text-[#8b949e] flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[#3fb950]">
-                  <span className="w-2 h-2 rounded-full bg-[#3fb950]"></span> Connected
-                </span>
-                <span>Yjs Live</span>
-              </div>
-            </div>
-          )}
-
-          {/* Draggable Sidebar Resizer Handle (Right Edge) */}
-          <div
-            onMouseDown={handleSidebarMouseDown}
-            className="w-1.5 h-full hover:bg-[#58a6ff] cursor-col-resize transition-colors z-30 shrink-0 opacity-40 hover:opacity-100"
-            title="Drag left/right to resize sidebar width"
-          />
-        </aside>
-
-        {/* Main Editor Section */}
+        {/* Main Editor Section (Expands Automatically when Sidebar Shrinks) */}
         <section className="flex-1 h-full flex flex-col bg-[#0d1117] overflow-hidden w-full min-w-0">
-          {/* File Tabs Bar */}
-          <div className="flex items-center bg-[#161b22] border-b border-[#30363d] overflow-x-auto px-1 pt-1 gap-1 scrollbar-none">
-            {/* Mobile Sidebar Toggle Button */}
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="md:hidden px-2 py-1 bg-[#21262d] border border-[#30363d] rounded text-xs text-[#c9d1d9] cursor-pointer mr-1"
-            >
-              ☰
-            </button>
-
-            {filesList.map((fileName) => {
-              const isActive = fileName === activeFileName
-              const fileLang = fileLanguages[fileName] || getLanguageFromFileName(fileName)
-              return (
-                <button
-                  key={fileName}
-                  onClick={() => handleSelectFile(fileName)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-t-md flex items-center gap-2 border-t border-x transition-colors cursor-pointer whitespace-nowrap ${
-                    isActive
-                      ? "bg-[#0d1117] text-[#58a6ff] border-[#30363d] border-b-[#0d1117] font-semibold"
-                      : "bg-[#161b22] text-[#8b949e] border-transparent hover:text-[#c9d1d9] hover:bg-[#21262d]"
-                  }`}
-                >
-                  <span className="text-xs">
-                    {fileLang === "javascript" && "📜"}
-                    {fileLang === "python" && "🐍"}
-                    {fileLang === "cpp" && "⚙️"}
-                    {fileLang === "c" && "⚙️"}
-                    {fileLang === "java" && "☕"}
-                    {fileLang === "typescript" && "📘"}
-                    {fileLang === "html" && "🌐"}
-                    {fileLang === "css" && "🎨"}
-                    {fileLang === "go" && "🐹"}
-                    {fileLang === "rust" && "🦀"}
-                    {fileLang === "php" && "🐘"}
-                    {fileLang === "sql" && "🗄️"}
-                    {fileLang === "json" && "📋"}
-                  </span>
-                  <span>{fileName}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Sub-Header Toolbar */}
-          <div className="px-3 py-1.5 bg-[#0d1117] border-b border-[#30363d] flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5 text-xs">
-                <span>⚡ CodeSync</span>
-                <span className="text-[#8b949e] text-[11px] font-normal">({activeFileName})</span>
-              </span>
-
-              {/* Version Diff View Button */}
-              <button
-                onClick={() => setShowDiffView(!showDiffView)}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
-                  showDiffView
-                    ? "bg-[#1f6feb]/20 text-[#58a6ff] border-[#1f6feb]/40"
-                    : "bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border-[#30363d]"
-                }`}
-                title="Toggle Code Version Diff View"
-              >
-                <span>⇄</span>
-                <span>{showDiffView ? "Close Diff" : "Diff View"}</span>
-              </button>
-            </div>
-
-            {/* Run Code Button & Terminal Toggle */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRunCode}
-                disabled={isRunning}
-                className="flex items-center gap-1.5 px-3 py-1 bg-[#238636] hover:bg-[#2ea043] disabled:opacity-50 text-white text-xs font-bold rounded shadow-sm transition-all cursor-pointer"
-              >
-                {isRunning ? (
-                  <>
-                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Running...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>▶</span>
-                    <span>Run Code</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => setShowConsole(!showConsole)}
-                className="px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] border border-[#30363d] rounded transition-colors cursor-pointer text-xs font-semibold"
-              >
-                {showConsole ? "Hide Terminal 🔽" : "Show Terminal 🔼"}
-              </button>
-            </div>
-          </div>
+          {/* Modular Editor Toolbar & File Tabs */}
+          <EditorToolbar
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            filesList={filesList}
+            activeFileName={activeFileName}
+            fileLanguages={fileLanguages}
+            getLanguageFromFileName={getLanguageFromFileName}
+            handleSelectFile={handleSelectFile}
+            showDiffView={showDiffView}
+            setShowDiffView={setShowDiffView}
+            handleRunCode={handleRunCode}
+            isRunning={isRunning}
+            showConsole={showConsole}
+            setShowConsole={setShowConsole}
+          />
 
           {/* Main Monaco Editor Container or Diff Viewer */}
           <div className="flex-1 relative overflow-hidden">
