@@ -1,0 +1,19 @@
+# Logs
+*.log
+*.err
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+
+# Storage / Temp files
+storage/
+**/storage/
+
+# Environment
+.env
+.env.local
