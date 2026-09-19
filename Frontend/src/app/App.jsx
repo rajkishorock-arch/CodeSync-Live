@@ -56,7 +56,7 @@ function getLanguageFromFileName(filename) {
 }
 
 function getUserColor(name) {
-  const colors = ["#238636", "#1f6feb", "#8957e5", "#d29922", "#da3633", "#3fb950"]
+  const colors = ["#238636", "#1f6feb", "#8957e5", "#d29922", "#da3633", "#3fb950", "#0969da", "#bf3989"]
   let hash = 0
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
   return colors[Math.abs(hash) % colors.length]
@@ -65,6 +65,7 @@ function getUserColor(name) {
 function App() {
   const editorRef = useRef(null)
   const bindingRef = useRef(null)
+  const providerRef = useRef(null)
   const chatEndRef = useRef(null)
 
   const [username, setUsername] = useState(() => {
@@ -92,7 +93,7 @@ function App() {
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
 
-  // Program Input (stdin) state for interactive programs (scanf, cin, input)
+  // Program Input (stdin) state
   const [stdinInput, setStdinInput] = useState("")
 
   // Execution & Console State
@@ -111,7 +112,8 @@ function App() {
     return getLanguageFromFileName(activeFileName)
   }, [activeFileName, fileLanguages])
 
-  const bindEditorToFile = (fileName, editor = editorRef.current) => {
+  // Bind Editor to Active File with Remote Cursor Awareness
+  const bindEditorToFile = (fileName, editor = editorRef.current, provider = providerRef.current) => {
     if (!editor) return
 
     if (bindingRef.current) {
@@ -126,21 +128,23 @@ function App() {
       fileYText.insert(0, STARTER_SNIPPETS[fileLang] || `// ${fileName}\n`)
     }
 
+    // Initialize MonacoBinding with Provider Awareness for live colored remote cursors
     bindingRef.current = new MonacoBinding(
       fileYText,
       editor.getModel(),
       new Set([editor]),
+      provider ? provider.awareness : undefined
     )
   }
 
   const handleMount = (editor) => {
     editorRef.current = editor
-    bindEditorToFile(activeFileName, editor)
+    bindEditorToFile(activeFileName, editor, providerRef.current)
   }
 
   const handleSelectFile = (fileName) => {
     setActiveFileName(fileName)
-    bindEditorToFile(fileName)
+    bindEditorToFile(fileName, editorRef.current, providerRef.current)
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false)
     }
@@ -251,12 +255,25 @@ function App() {
     }
   }, [messages, activeSidebarTab])
 
+  // WebSocket Connection & User Awareness for Remote Cursors
   useEffect(() => {
     if (username) {
       const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL || `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:1234`
       const provider = new WebsocketProvider(websocketUrl, "monaco", ydoc)
+      providerRef.current = provider
 
-      provider.awareness.setLocalStateField("user", { username })
+      const userColor = getUserColor(username)
+
+      // Pass User Name & Unique Color to Yjs Awareness for Remote Cursors
+      provider.awareness.setLocalStateField("user", {
+        username,
+        color: userColor
+      })
+
+      // Re-bind Monaco editor with active provider awareness
+      if (editorRef.current) {
+        bindEditorToFile(activeFileName, editorRef.current, provider)
+      }
 
       const handleAwarenessChange = () => {
         const states = Array.from(provider.awareness.getStates().values())
@@ -293,7 +310,6 @@ function App() {
     setShowConsole(true)
     setIsRunning(true)
 
-    // Mode 1: HTML / CSS
     if (language === "html" || language === "css") {
       let combinedHTML = codeToRun
       if (language === "css") {
@@ -313,7 +329,6 @@ function App() {
       return
     }
 
-    // Mode 2: In-Browser JS Engine
     if (language === "javascript" || language === "typescript") {
       const logs = []
       const customConsole = {
@@ -354,7 +369,6 @@ function App() {
       return
     }
 
-    // Mode 3: Judge0 API for C, C++, Python, Java, Go, Rust, etc.
     const langObj = LANGUAGE_CONFIG.find(l => l.id === language)
     try {
       const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
@@ -378,7 +392,6 @@ function App() {
       let outputMessage = stdout
       let statusText = data.status ? data.status.description : "Completed"
 
-      // Helpful tip if interactive program failed due to missing stdin input
       if (isErr && data.status && data.status.id !== 3) {
         if (!stdinInput.trim() && (codeToRun.includes("scanf") || codeToRun.includes("cin") || codeToRun.includes("input("))) {
           outputMessage = stdout + "\n\n💡 TIP: Your program requires user input (scanf / cin / input).\nPlease enter your input values in the 'Program Input (stdin)' box below and click 'Run Code' again!"
@@ -818,7 +831,6 @@ function App() {
           {/* Terminal Console Output & Program Stdin Drawer */}
           {showConsole && (
             <div className="h-52 sm:h-56 bg-[#0d1117] border-t border-[#30363d] flex flex-col font-mono text-xs">
-              {/* Terminal Header */}
               <div className="px-3 py-1.5 bg-[#161b22] border-b border-[#30363d] flex justify-between items-center text-[#8b949e]">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-[#f0f6fc] flex items-center gap-1.5">
@@ -849,9 +861,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Terminal Split: Stdin Input Box + Output Box */}
               <div className="flex-1 flex flex-col sm:flex-row overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-[#30363d]">
-                {/* Program Input (stdin) Box for scanf / cin / input */}
                 {(language === "c" || language === "cpp" || language === "python" || language === "java" || language === "go") && (
                   <div className="w-full sm:w-1/3 bg-[#161b22]/50 p-2 flex flex-col gap-1 shrink-0">
                     <label className="text-[10px] font-bold text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
@@ -867,7 +877,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Execution Output Box */}
                 <div className="flex-1 p-3 overflow-y-auto text-[#c9d1d9] selection:bg-[#1f6feb]/30">
                   {isRunning && (
                     <div className="flex items-center gap-2 text-[#d29922] italic font-sans">
